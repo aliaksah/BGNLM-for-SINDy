@@ -80,6 +80,7 @@ p2 <- ggplot(summary_r2[summary_tpr_fpr$Noise<15,], aes(x = Noise)) +
 
 p2
 
+
 # Save plots
-ggsave("tpr_fpr_plot.pdf", p1, width = 8, height = 4,bg = "white")
-ggsave("r2_plot.pdf", p2, width = 8, height = 4,bg = "white")
+ggsave("result_tpr_fpr_plot.png", p1, width = 8, height = 4,bg = "white")
+ggsave("result_r2_plot.png", p2, width = 8, height = 4,bg = "white")
