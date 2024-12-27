@@ -15,13 +15,9 @@
 ## Framework Overview
 
 We model ordinary differential equations (ODEs) in the form:
-$
-\dot{\boldsymbol{x}}(t) = \boldsymbol{f}(\boldsymbol{x}(t)),
-$
+$$\dot{\boldsymbol{x}}(t) = \boldsymbol{f}(\boldsymbol{x}(t)),$$
 with BGNLM providing sparse, interpretable solutions:
-$
-f_j(\boldsymbol{x}_i) = \sum_{k=1}^{q} \gamma_{jk} \beta_{jk} g_k(\boldsymbol{x}_i),
-$
+$$f_j(\boldsymbol{x}_i) = \sum_{k=1}^{q} \gamma_{jk} \beta_{jk} g_k(\boldsymbol{x}_i),$$
 where:
 - $g_k(\boldsymbol{x})$: Nonlinear features.
 - $\gamma_{jk}$: Binary inclusion indicators.
@@ -48,13 +44,13 @@ Three nonlinear systems were modeled:
 For each system, we:
 - Simulated trajectories under varying noise levels.
 - Evaluated models on training, in-sample, and out-of-sample datasets.
-- Assessed performance with Power, FDR, and \(R^2\).
+- Assessed performance with Power, FDR, and $R^2$.
 
 ![Performance Metrics1](result_tpr_fpr_plot.png)  
-**Power and FDR curves. **
+**Power and FDR curves**
 
 ![Performance Metrics2](result_r2_plot.png)  
-**R^2 curves. **
+**R^2 curves**
 
 ## Results
 
