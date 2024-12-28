@@ -145,9 +145,9 @@ for (noise_level in noise_levels) {
       TPR_total <- TPR_total + TPR
       FPR_total <- FPR_total + FPR
       
-      preds.in.test <- predict(lm(as.formula(paste0("yc ~",paste0(res$feats.strings,collapse = "+"),collapse = "")),data = data),newdata = data.in.test)#predict(model,data.in.test,pop = "last")$aggr$mean
-      preds.out.test <- predict(lm(as.formula(paste0("yc ~",paste0(res$feats.strings,collapse = "+"),collapse = "")),data = data),newdata = data.out.test)#predict(model,data.out.test)$aggr$mean
-      preds.train <- predict(lm(as.formula(paste0("yc ~",paste0(res$feats.strings,collapse = "+"),collapse = "")),data = data),newdata = data)# predict(model,data)$aggr$mean
+      preds.in.test <- predict(lm(as.formula(paste0("yc ~",paste0(res$feats.strings,collapse = "+"),collapse = "")),data = data),newdata = data.in.test)
+      preds.out.test <- predict(lm(as.formula(paste0("yc ~",paste0(res$feats.strings,collapse = "+"),collapse = "")),data = data),newdata = data.out.test)
+      preds.train <- predict(lm(as.formula(paste0("yc ~",paste0(res$feats.strings,collapse = "+"),collapse = "")),data = data),newdata = data)
       
       r2.train <- r2.train + cor(preds.train,y_rossler[observed,coord])^2
       r2.in.test <- r2.in.test + cor(preds.in.test,y_rossler[predict.insample,coord])^2
