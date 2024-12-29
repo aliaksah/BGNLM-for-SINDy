@@ -2,6 +2,8 @@
 # Load necessary libraries
 library(plotly)
 library(deSolve)
+#install if needed from git
+#devtools::install_github("jonlachmann/GMJMCMC@FBMS", force=T, build_vignettes=F)
 library(FBMS)
 dt <- 0.0001
 Time <- 50
