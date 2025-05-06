@@ -131,7 +131,7 @@ for (noise_level in noise_levels) {
       
       # Calculate True Positive Rate (TPR) and False Positive Rate (FPR)
       TPR <- sum(res$feats.strings %in% ground_truth_linear_3d[[coord]]) /  lentp
-      FPR <- sum(! (res$feats.strings %in% ground_truth_linear_3d[[coord]])) / min(1,length(res$feats.strings))
+      FPR <- sum(!(res$feats.strings %in% ground_truth_linear_3d[[coord]])) / max(1,length(res$feats.strings))
       
       # Accumulate TPR and FPR for each coordinate
       TPR_total <- TPR_total + TPR
