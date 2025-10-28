@@ -2,8 +2,6 @@
 # Load necessary libraries
 library(plotly)
 library(deSolve)
-#install if needed from git
-#devtools::install_github("jonlachmann/GMJMCMC@FBMS", force=T, build_vignettes=F)
 library(FBMS)
 
 
@@ -122,8 +120,7 @@ for (noise_level in noise_levels) {
       params$feat$pop.max <- 15
       params$feat$keep.org <- T
       params$feat$check.col <- T
-      model <- fbms(formula = yc ~  x.1 + x.2 + x.3, family = "gaussian",data = data,method = "gmjmcmc.parallel",params = params,runs = 10, cores = 10,N.init = 500,
-                    N.final = 500, transforms = c("sin_deg","cos_deg","p0","p2","p3","p05","pm1","pm2","pm05"),
+      model <- fbms(formula = yc ~  x.1 + x.2 + x.3, family = "gaussian",data = data,method = "gmjmcmc.parallel",params = params,runs = 10, cores = 10,N = 500, transforms = c("sin_deg","cos_deg","p0","p2","p3","p05","pm1","pm2","pm05"),
                     P = 20)
       res = summary(model,tol = 0.5,labels = names(data)[-1])
       

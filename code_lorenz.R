@@ -1,9 +1,7 @@
 
-# Load necessary libraries
+# Load necessary libraries (install if needed)
 library(plotly)
 library(deSolve)
-#install if needed from git
-#devtools::install_github("jonlachmann/GMJMCMC@FBMS", force=T, build_vignettes=F)
 library(FBMS)
 dt <- 0.0001
 Time <- 50
@@ -30,7 +28,6 @@ lorenz_system <- function(t, state, parameters) {
 }
 
 # Initial conditions and parameters for the Lorenz system
-#state <- c(x = 1, y = 1, z = 1)  # Initial values for x, y, z
 parameters <- c(sigma = 10, rho = 28, beta = 8/3)  # Lorenz parameters
 x0_lorenz <- c(x = -0.5, y = -2, z = 3)
 lorenz_data <- as.data.frame(ode(y = x0_lorenz, times = times, func = lorenz_system, parms = parameters))
@@ -100,12 +97,11 @@ for (noise_level in noise_levels) {
       data.in.test <- data[predict.insample,]
       data.out.test <- data[predict.outsample,]
       data <- data[observed,]
-      params <- gen.params.gmjmcmc(data)
+      params <- gen.params.gmjmcmc(ncol(data)-1)
       params$feat$pop.max <- 15
       params$feat$keep.org <- T
       params$feat$check.col <- T
-      model <- fbms(formula = yc ~  x.1 + x.2 + x.3, family = "gaussian",data = data,method = "gmjmcmc.parallel",params = params,runs = 10, cores = 10,N.init = 500,
-                    N.final = 500, transforms = c("sin_deg","cos_deg","p0","p2","p3","p05","pm1","pm2","pm05"),
+      model <- fbms(formula = yc ~  x.1 + x.2 + x.3, data = data,method = "gmjmcmc.parallel",params = params,runs = 10, cores = 10,N = 500, transforms = c("sin_deg","cos_deg","p0","p2","p3","p05","pm1","pm2","pm05"),
                     P = 20)
       res = summary(model,tol = 0.5,labels = names(data)[-1])
       
@@ -122,6 +118,16 @@ for (noise_level in noise_levels) {
       preds.in.test <- predict(lm(as.formula(paste0("yc ~",paste0(res$feats.strings,collapse = "+"),collapse = "")),data = data),newdata = data.in.test)
       preds.out.test <- predict(lm(as.formula(paste0("yc ~",paste0(res$feats.strings,collapse = "+"),collapse = "")),data = data),newdata = data.out.test)
       preds.train <- predict(lm(as.formula(paste0("yc ~",paste0(res$feats.strings,collapse = "+"),collapse = "")),data = data),newdata = data)
+      
+      preds.in.test <- predict(get.best.model(model), data.in.test)
+      preds.out.test <- predict(get.best.model(model), data.out.test)
+      preds.train <-  predict(get.best.model(model), data)
+      
+      print(cor(preds.train,y_lorenz[observed,coord])^2)
+   
+      print(cor(preds.in.test,y_lorenz[predict.insample,coord])^2)
+      
+      print(cor(preds.out.test,y_lorenz[predict.outsample,coord])^2)
       
       r2.train <- r2.train + cor(preds.train,y_lorenz[observed,coord])^2
       r2.in.test <- r2.in.test + cor(preds.in.test,y_lorenz[predict.insample,coord])^2
