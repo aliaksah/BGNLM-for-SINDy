@@ -1,0 +1,20 @@
+\begin{table}[t]
+\centering
+\caption{Systematic BGNLM Hyperparameter and Prior Tuning on the Calibration Suite.}
+\label{tab:bgnlm_tuning}
+\small
+\begin{tabular}{llcccccc}
+\toprule
+Config ID & Parameter Prior & $r$ Penalty & $p_{\text{proj}}$ & F1 $\uparrow$ & FDR $\downarrow$ & PIP Brier $\downarrow$ & $R^2_{\text{OOD}}$ $\uparrow$ \\
+\midrule
+C04\_JeffreysBIC\_UnknownVar\_rN1 & Jeffreys-BIC & \texttt{N^(-1.0)} & 0.00 & 0.976 & 0.024 & 0.011 & 0.944 \\
+C05\_GPrior\_rN15\_StrongPenalty & g-prior & \texttt{N^(-1.5)} & 0.00 & 0.929 & 0.071 & 0.016 & 0.939 \\
+C06\_GPrior\_rExp4\_LowProj & g-prior & \texttt{exp(-4)} & 0.05 & 0.929 & 0.071 & 0.016 & 0.938 \\
+C01\_GPrior\_rN1\_Algebraic & g-prior & \texttt{N^(-1.0)} & 0.00 & 0.929 & 0.071 & 0.019 & 0.939 \\
+C07\_GPrior\_HighProj\_Abalation & g-prior & \texttt{N^(-0.5)} & 0.20 & 0.890 & 0.099 & 0.024 & 0.990 \\
+C03\_Robust\_tCCH\_rN1\_Algebraic & robust & \texttt{N^(-1.0)} & 0.00 & 0.902 & 0.148 & 0.029 & 0.887 \\
+C08\_IWSM\_Baseline\_FixedVar1 & Jeffreys-BIC & \texttt{N^(-1.0)} & 0.10 & 0.684 & 0.220 & 0.227 & 0.786 \\
+C02\_HyperGN\_rN1\_Algebraic & hyper-g-n & \texttt{N^(-1.0)} & 0.00 & 0.000 & 0.000 & 0.424 & 0.000 \\
+\bottomrule
+\end{tabular}
+\end{table}

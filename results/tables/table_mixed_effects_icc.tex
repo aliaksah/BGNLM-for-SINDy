@@ -1,0 +1,42 @@
+\begin{table}[t]
+\centering
+\caption{Random-Effects Variance Decomposition and Intraclass Correlation Coefficients (ICC).}
+\label{tab:mixed_effects_icc}
+\small
+\begin{tabular}{llccc}
+\toprule
+Model & Random Effect Group & Variance $\hat{\sigma}^2$ & Std. Dev. $\hat{\sigma}$ & ICC \\
+\midrule
+Synth\_F1 & \texttt{System:Seed\_ID} & 0.0000 & 0.0000 & 0.000 \\
+Synth\_F1 & \texttt{System} & 0.0059 & 0.0771 & 0.272 \\
+Synth\_F1 & \texttt{Residual} & 0.0159 & 0.1261 & 0.728 \\
+Synth\_TPR & \texttt{System:Seed\_ID} & 0.0000 & 0.0000 & 0.000 \\
+Synth\_TPR & \texttt{System} & 0.0329 & 0.1813 & 0.733 \\
+Synth\_TPR & \texttt{Residual} & 0.0120 & 0.1094 & 0.267 \\
+Synth\_FDR & \texttt{System:Seed\_ID} & 0.0000 & 0.0000 & 0.000 \\
+Synth\_FDR & \texttt{System} & 0.0000 & 0.0000 & 0.000 \\
+Synth\_FDR & \texttt{Residual} & 0.0400 & 0.2001 & 1.000 \\
+Synth\_R2\_test\_in & \texttt{System:Seed\_ID} & 0.0000 & 0.0000 & 0.000 \\
+Synth\_R2\_test\_in & \texttt{System} & 0.0007 & 0.0273 & 0.136 \\
+Synth\_R2\_test\_in & \texttt{Residual} & 0.0047 & 0.0686 & 0.864 \\
+Synth\_R2\_test\_ood & \texttt{System:Seed\_ID} & 0.0000 & 0.0000 & 0.000 \\
+Synth\_R2\_test\_ood & \texttt{System} & 0.0370 & 0.1924 & 0.632 \\
+Synth\_R2\_test\_ood & \texttt{Residual} & 0.0215 & 0.1467 & 0.368 \\
+Synth\_R2\_traj & \texttt{System:Seed\_ID} & 0.0000 & 0.0000 & 0.000 \\
+Synth\_R2\_traj & \texttt{System} & 0.0000 & 0.0000 & 0.000 \\
+Synth\_R2\_traj & \texttt{Residual} & 0.0162 & 0.1274 & 1.000 \\
+Real\_R2\_traj & \texttt{Dataset:Fold\_UID} & 0.0000 & 0.0000 & 0.000 \\
+Real\_R2\_traj & \texttt{Dataset} & 0.0000 & 0.0067 & 0.011 \\
+Real\_R2\_traj & \texttt{Residual} & 0.0038 & 0.0619 & 0.989 \\
+Real\_NRMSE\_traj & \texttt{Dataset:Fold\_UID} & 0.0000 & 0.0000 & 0.000 \\
+Real\_NRMSE\_traj & \texttt{Dataset} & 0.0000 & 0.0069 & 0.006 \\
+Real\_NRMSE\_traj & \texttt{Residual} & 0.0082 & 0.0905 & 0.994 \\
+Real\_R2\_test\_ood & \texttt{Dataset:Fold\_UID} & 0.0000 & 0.0019 & 0.019 \\
+Real\_R2\_test\_ood & \texttt{Dataset} & 0.0000 & 0.0051 & 0.140 \\
+Real\_R2\_test\_ood & \texttt{Residual} & 0.0002 & 0.0124 & 0.841 \\
+Real\_F1 & \texttt{Dataset:Fold\_UID} & 0.0000 & 0.0000 & 0.000 \\
+Real\_F1 & \texttt{Dataset} & 0.0381 & 0.1951 & 0.518 \\
+Real\_F1 & \texttt{Residual} & 0.0354 & 0.1882 & 0.482 \\
+\bottomrule
+\end{tabular}
+\end{table}

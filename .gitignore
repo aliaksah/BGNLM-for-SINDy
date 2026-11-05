@@ -1,0 +1,12 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.venv/
+__pycache__/
+*.pyc
+logs/
+results/checkpoints_synth/*.rds
+results/checkpoints_real/*.rds
+results/checkpoints_tuning/*.rds
+.DS_Store

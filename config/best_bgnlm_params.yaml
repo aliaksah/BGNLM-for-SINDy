@@ -1,0 +1,17 @@
+config_id: C04_JeffreysBIC_UnknownVar_rN1
+label: Jeffreys-BIC (unknown sigma^2), r=N^-1, p_proj=0.0, p_inter=0.55
+beta_prior_type: Jeffreys-BIC
+g_rule: bic
+var: unknown
+r_rule: N^(-1.0)
+p_inter: 0.55
+p_mod: 0.35
+p_proj: 0.0
+p_new: 0.1
+pop_max: 20
+max_depth_D: 2
+P_generations: 12
+N_mcmc: 500
+runs: 6
+transforms_tier: transforms_extended
+energy_prune_tol: 0.025

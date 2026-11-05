@@ -1,0 +1,262 @@
+# 12 Canonical SINDy Benchmark Dynamical Systems (Groups A, B, and C)
+systems:
+  # Group A: Canonical Polynomial Dynamical Systems
+  sys01_linear_quadratic_3d:
+    sys_id: 1
+    name: "Linear-Quadratic Coupled 3D"
+    group: "Group_A_Polynomial"
+    dim: 3
+    dt: 0.0001
+    T_max: 20.0
+    state_names: ["x1", "x2", "x3"]
+    initial_conditions: [2.0, 0.0, 1.0]
+    parameters:
+      a: -1.0
+      b: 20.0
+      c: -20.0
+      d: -1.0
+      e: -3.0
+    equations_latex:
+      - "\\dot{x}_1 = a x_1 + b x_1 x_2"
+      - "\\dot{x}_2 = c x_1 + d x_1 x_2"
+      - "\\dot{x}_3 = e x_3"
+    ground_truth_atoms:
+      eq1: ["x1", "x1*x2"]
+      eq2: ["x1", "x1*x2"]
+      eq3: ["x3"]
+
+  sys02_lorenz63:
+    sys_id: 2
+    name: "Lorenz-63 System"
+    group: "Group_A_Polynomial"
+    dim: 3
+    dt: 0.0001
+    T_max: 50.0
+    state_names: ["x1", "x2", "x3"]
+    initial_conditions: [-0.5, -2.0, 3.0]
+    parameters:
+      sigma: 10.0
+      rho: 28.0
+      beta: 2.6666666666666665
+    equations_latex:
+      - "\\dot{x}_1 = \\sigma(x_2 - x_1)"
+      - "\\dot{x}_2 = x_1(\\rho - x_3) - x_2"
+      - "\\dot{x}_3 = x_1 x_2 - \\beta x_3"
+    ground_truth_atoms:
+      eq1: ["x1", "x2"]
+      eq2: ["x1", "x2", "x1*x3"]
+      eq3: ["x3", "x1*x2"]
+
+  sys03_rossler:
+    sys_id: 3
+    name: "Rossler Attractor"
+    group: "Group_A_Polynomial"
+    dim: 3
+    dt: 0.0001
+    T_max: 50.0
+    state_names: ["x1", "x2", "x3"]
+    initial_conditions: [0.5, -1.0, 2.0]
+    parameters:
+      a: 0.2
+      b: 0.2
+      c: 5.7
+    equations_latex:
+      - "\\dot{x}_1 = -x_2 - x_3"
+      - "\\dot{x}_2 = x_1 + a x_2"
+      - "\\dot{x}_3 = b + x_3(x_1 - c)"
+    ground_truth_atoms:
+      eq1: ["x2", "x3"]
+      eq2: ["x1", "x2"]
+      eq3: ["x3", "x1*x3"]
+
+  sys04_lotka_volterra:
+    sys_id: 4
+    name: "Lotka-Volterra Predator-Prey"
+    group: "Group_A_Polynomial"
+    dim: 2
+    dt: 0.0001
+    T_max: 30.0
+    state_names: ["x1", "x2"]
+    initial_conditions: [1.0, 1.0]
+    parameters:
+      alpha: 1.5
+      beta: 1.0
+      delta: 1.0
+      gamma: 3.0
+    equations_latex:
+      - "\\dot{x}_1 = \\alpha x_1 - \\beta x_1 x_2"
+      - "\\dot{x}_2 = \\delta x_1 x_2 - \\gamma x_2"
+    ground_truth_atoms:
+      eq1: ["x1", "x1*x2"]
+      eq2: ["x2", "x1*x2"]
+
+  sys05_van_der_pol:
+    sys_id: 5
+    name: "Van der Pol Oscillator"
+    group: "Group_A_Polynomial"
+    dim: 2
+    dt: 0.0001
+    T_max: 30.0
+    state_names: ["x1", "x2"]
+    initial_conditions: [2.0, 0.0]
+    parameters:
+      mu: 2.0
+    equations_latex:
+      - "\\dot{x}_1 = x_2"
+      - "\\dot{x}_2 = \\mu(1 - x_1^2)x_2 - x_1"
+    ground_truth_atoms:
+      eq1: ["x2"]
+      eq2: ["x1", "x2", "x1^2*x2"]
+
+  sys06_duffing:
+    sys_id: 6
+    name: "Duffing Oscillator"
+    group: "Group_A_Polynomial"
+    dim: 2
+    dt: 0.0001
+    T_max: 30.0
+    state_names: ["x1", "x2"]
+    initial_conditions: [0.5, 1.0]
+    parameters:
+      delta: 0.1
+      alpha: -1.0
+      beta: 1.0
+    equations_latex:
+      - "\\dot{x}_1 = x_2"
+      - "\\dot{x}_2 = -\\delta x_2 - \\alpha x_1 - \\beta x_1^3"
+    ground_truth_atoms:
+      eq1: ["x2"]
+      eq2: ["x1", "x2", "x1^3"]
+
+  sys07_brusselator:
+    sys_id: 7
+    name: "Brusselator System"
+    group: "Group_A_Polynomial"
+    dim: 2
+    dt: 0.0001
+    T_max: 30.0
+    state_names: ["x1", "x2"]
+    initial_conditions: [1.5, 3.0]
+    parameters:
+      a: 1.0
+      b: 3.0
+    equations_latex:
+      - "\\dot{x}_1 = a - (b + 1)x_1 + x_1^2 x_2"
+      - "\\dot{x}_2 = b x_1 - x_1^2 x_2"
+    ground_truth_atoms:
+      eq1: ["x1", "x1^2*x2"]
+      eq2: ["x1", "x1^2*x2"]
+
+  # Group B: Non-Polynomial / Transcendental / Rational Systems
+  sys08_rossler_lorenz_hybrid:
+    sys_id: 8
+    name: "Rossler-Lorenz Hybrid 3D"
+    group: "Group_B_NonPolynomial"
+    dim: 3
+    dt: 0.0001
+    T_max: 50.0
+    state_names: ["x1", "x2", "x3"]
+    initial_conditions: [0.5, -1.0, 2.0]
+    parameters:
+      a: 0.2
+      b: 0.1
+      c: 0.4
+      d: 5.7
+    equations_latex:
+      - "\\dot{x}_1 = -x_2 - x_3 + a \\sin(x_1)"
+      - "\\dot{x}_2 = x_1 + b x_2"
+      - "\\dot{x}_3 = c + x_3(x_1 - d)"
+    ground_truth_atoms:
+      eq1: ["x2", "x3", "sin(x1)"]
+      eq2: ["x1", "x2"]
+      eq3: ["x3", "x1*x3"]
+
+  sys09_damped_pendulum:
+    sys_id: 9
+    name: "Damped Nonlinear Pendulum"
+    group: "Group_B_NonPolynomial"
+    dim: 2
+    dt: 0.0001
+    T_max: 25.0
+    state_names: ["x1", "x2"]
+    initial_conditions: [3.041592653589793, 0.0]
+    parameters:
+      gamma: 0.25
+      g_over_L: 5.0
+    equations_latex:
+      - "\\dot{x}_1 = x_2"
+      - "\\dot{x}_2 = -\\gamma x_2 - (g/L) \\sin(x_1)"
+    ground_truth_atoms:
+      eq1: ["x2"]
+      eq2: ["x2", "sin(x1)"]
+
+  sys10_thomas_attractor:
+    sys_id: 10
+    name: "Thomas Cyclically Symmetric Attractor"
+    group: "Group_B_NonPolynomial"
+    dim: 3
+    dt: 0.0001
+    T_max: 50.0
+    state_names: ["x1", "x2", "x3"]
+    initial_conditions: [0.1, 0.0, 0.0]
+    parameters:
+      b: 0.18
+    equations_latex:
+      - "\\dot{x}_1 = \\sin(x_2) - b x_1"
+      - "\\dot{x}_2 = \\sin(x_3) - b x_2"
+      - "\\dot{x}_3 = \\sin(x_1) - b x_3"
+    ground_truth_atoms:
+      eq1: ["x1", "sin(x2)"]
+      eq2: ["x2", "sin(x3)"]
+      eq3: ["x3", "sin(x1)"]
+
+  sys11_goodwin_mm:
+    sys_id: 11
+    name: "Michaelis-Menten Goodwin Oscillator"
+    group: "Group_B_NonPolynomial"
+    dim: 3
+    dt: 0.0001
+    T_max: 40.0
+    state_names: ["x1", "x2", "x3"]
+    initial_conditions: [0.5, 0.5, 0.5]
+    parameters:
+      p: 2.0
+      v0: 1.0
+      k1: 0.5
+      k2: 0.5
+      vm: 1.0
+      Km: 1.0
+    equations_latex:
+      - "\\dot{x}_1 = v_0 / (1 + x_3^2) - k_1 x_1"
+      - "\\dot{x}_2 = k_1 x_1 - k_2 x_2"
+      - "\\dot{x}_3 = k_2 x_2 - v_m x_3 / (K_m + x_3)"
+    ground_truth_atoms:
+      eq1: ["x1", "1/(1+x3^2)"]
+      eq2: ["x1", "x2"]
+      eq3: ["x2", "x3/(1+x3)"]
+
+  # Group C: Higher-Dimensional Coupled System
+  sys12_lorenz96_5d:
+    sys_id: 12
+    name: "Lorenz-96 (5D Coupled)"
+    group: "Group_C_HighDim"
+    dim: 5
+    dt: 0.0001
+    T_max: 30.0
+    state_names: ["x1", "x2", "x3", "x4", "x5"]
+    initial_conditions: [8.0, 8.0, 8.0, 8.0, 8.01]
+    parameters:
+      F: 8.0
+    equations_latex:
+      - "\\dot{x}_1 = (x_2 - x_4) x_5 - x_1 + F"
+      - "\\dot{x}_2 = (x_3 - x_5) x_1 - x_2 + F"
+      - "\\dot{x}_3 = (x_4 - x_1) x_2 - x_3 + F"
+      - "\\dot{x}_4 = (x_5 - x_2) x_3 - x_4 + F"
+      - "\\dot{x}_5 = (x_1 - x_3) x_4 - x_5 + F"
+    ground_truth_atoms:
+      eq1: ["x1", "x2*x5", "x4*x5"]
+      eq2: ["x2", "x1*x3", "x1*x5"]
+      eq3: ["x3", "x2*x4", "x1*x2"]
+      eq4: ["x4", "x3*x5", "x2*x3"]
+      eq5: ["x5", "x1*x4", "x3*x4"]
+

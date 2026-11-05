@@ -1,0 +1,63 @@
+# Full Factorial ICML Benchmark Grid Specification (Sections 2, 3, and 6)
+methods:
+  - "BGNLM_Full_Tuned"
+  - "BGNLM_IWSM_Untuned"
+  - "BGNLM_Hybrid_Poly"
+  - "BGLM_Oracle_Basis"
+  - "BGLM_Poly_Basis"
+  - "BGLM_Overcomplete"
+  - "SINDy_STLSQ_Oracle"
+  - "SINDy_STLSQ_Poly"
+  - "UQ_SINDy_Oracle"
+  - "UQ_SINDy_Poly"
+  - "SINDy_PI_Rational"
+  - "SR_PySR"
+  - "SR_Operon"
+
+synthetic_experiment:
+  systems:
+    - "sys01_linear_quadratic_3d"
+    - "sys02_lorenz63"
+    - "sys03_rossler"
+    - "sys04_lotka_volterra"
+    - "sys05_van_der_pol"
+    - "sys06_duffing"
+    - "sys07_brusselator"
+    - "sys08_rossler_lorenz_hybrid"
+    - "sys09_damped_pendulum"
+    - "sys10_thomas_attractor"
+    - "sys11_goodwin_mm"
+    - "sys12_lorenz96_5d"
+  sample_sizes: [100, 250, 500, 1000, 2500]
+  derivative_noise_eta: [0.001, 0.01, 0.05, 0.10, 0.25, 0.50, 1.00]
+  state_noise_eta: [0.001, 0.01, 0.05, 0.10]
+  iwsm_compat_sigma: [0.1, 0.2, 0.4, 0.8, 1.6, 3.2, 6.4, 12.8]
+  n_replications: 20
+  in_sample_test_n: 1000
+  ood_test_n: 1000
+
+real_data_experiment:
+  datasets:
+    - "real01_lynx_hare"
+    - "real02_paramecium_didinium"
+    - "real03_schmidt_pendulum"
+    - "real04_cascaded_tanks"
+    - "real05_yeast_glycolysis"
+  diff_methods:
+    - "sgolay_spline"
+    - "tvregdiff"
+  n_replications: 20
+
+smoke_test:
+  synthetic_systems:
+    - "sys02_lorenz63"
+    - "sys08_rossler_lorenz_hybrid"
+  synthetic_sample_sizes: [250]
+  synthetic_noise_eta: [0.05]
+  real_datasets:
+    - "real01_lynx_hare"
+    - "real03_schmidt_pendulum"
+  real_diff_methods:
+    - "sgolay_spline"
+  n_replications: 2
+

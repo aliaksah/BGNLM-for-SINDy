@@ -1,0 +1,64 @@
+\begin{table*}[t]
+\centering
+\caption{Linear Mixed-Effects Model (LMM) Contrasts on Synthetic Benchmark Suite (Reference: \texttt{BGNLM\_Full\_Tuned}).}
+\label{tab:mixed_effects_synth}
+\small
+\begin{tabular}{llcccccc}
+\toprule
+Metric & Term / Contrast (vs. \texttt{BGNLM\_Full\_Tuned}) & $\hat{\beta}$ & SE & $df$ & $t/z$ & $95\%$ CI & $p$-value \\
+\midrule
+F1 & \texttt{(Intercept)} & 0.929 & 0.083 & 4.3 & 11.14 & [0.704, 1.153] & $0.0002$ \\
+F1 & \texttt{BGLM\_Oracle\_Basis} & 0.016 & 0.089 & 38.0 & 0.18 & [-0.164, 0.197] & $0.8543$ \\
+F1 & \texttt{BGLM\_Overcomplete} & -0.607 & 0.089 & 38.0 & -6.80 & [-0.787, -0.426] & $< 10^{-4}$ \\
+F1 & \texttt{BGLM\_Poly\_Basis} & -0.071 & 0.089 & 38.0 & -0.80 & [-0.252, 0.109] & $0.4280$ \\
+F1 & \texttt{BGNLM\_Hybrid\_Poly} & -0.019 & 0.089 & 38.0 & -0.22 & [-0.200, 0.161] & $0.8304$ \\
+F1 & \texttt{BGNLM\_IWSM\_Untuned} & -0.215 & 0.089 & 38.0 & -2.42 & [-0.396, -0.035] & $0.0206$ \\
+F1 & \texttt{SINDy\_PI\_Rational} & -0.470 & 0.089 & 38.0 & -5.28 & [-0.651, -0.290] & $< 10^{-4}$ \\
+F1 & \texttt{SINDy\_STLSQ\_Oracle} & -0.383 & 0.089 & 38.0 & -4.30 & [-0.564, -0.203] & $0.0001$ \\
+F1 & \texttt{SINDy\_STLSQ\_Poly} & -0.507 & 0.089 & 38.0 & -5.69 & [-0.687, -0.327] & $< 10^{-4}$ \\
+F1 & \texttt{SR\_Operon} & -0.396 & 0.089 & 38.0 & -4.44 & [-0.577, -0.216] & $< 10^{-4}$ \\
+F1 & \texttt{SR\_PySR} & -0.352 & 0.089 & 38.0 & -3.95 & [-0.533, -0.172] & $0.0003$ \\
+F1 & \texttt{UQ\_SINDy\_Oracle} & -0.590 & 0.089 & 38.0 & -6.62 & [-0.771, -0.410] & $< 10^{-4}$ \\
+F1 & \texttt{UQ\_SINDy\_Poly} & -0.606 & 0.089 & 38.0 & -6.80 & [-0.787, -0.426] & $< 10^{-4}$ \\
+FDR & \texttt{(Intercept)} & 0.071 & 0.100 & 39.0 & 0.71 & [-0.131, 0.274] & $0.4794$ \\
+FDR & \texttt{BGLM\_Oracle\_Basis} & -0.036 & 0.141 & 39.0 & -0.25 & [-0.322, 0.250] & $0.8020$ \\
+FDR & \texttt{BGLM\_Overcomplete} & 0.640 & 0.141 & 39.0 & 4.52 & [0.354, 0.926] & $< 10^{-4}$ \\
+FDR & \texttt{BGLM\_Poly\_Basis} & 0.071 & 0.141 & 39.0 & 0.50 & [-0.215, 0.358] & $0.6164$ \\
+FDR & \texttt{BGNLM\_Hybrid\_Poly} & 0.000 & 0.141 & 39.0 & 0.00 & [-0.286, 0.286] & $1.0000$ \\
+FDR & \texttt{BGNLM\_IWSM\_Untuned} & 0.075 & 0.141 & 39.0 & 0.53 & [-0.211, 0.361] & $0.5988$ \\
+FDR & \texttt{SINDy\_PI\_Rational} & 0.593 & 0.141 & 39.0 & 4.19 & [0.307, 0.879] & $0.0002$ \\
+FDR & \texttt{SINDy\_STLSQ\_Oracle} & 0.518 & 0.141 & 39.0 & 3.66 & [0.232, 0.804] & $0.0007$ \\
+FDR & \texttt{SINDy\_STLSQ\_Poly} & 0.624 & 0.141 & 39.0 & 4.41 & [0.338, 0.910] & $< 10^{-4}$ \\
+FDR & \texttt{SR\_Operon} & 0.448 & 0.141 & 39.0 & 3.17 & [0.162, 0.734] & $0.0030$ \\
+FDR & \texttt{SR\_PySR} & 0.398 & 0.141 & 39.0 & 2.82 & [0.112, 0.685] & $0.0076$ \\
+FDR & \texttt{UQ\_SINDy\_Oracle} & 0.550 & 0.141 & 39.0 & 3.89 & [0.264, 0.836] & $0.0004$ \\
+FDR & \texttt{UQ\_SINDy\_Poly} & 0.536 & 0.141 & 39.0 & 3.79 & [0.250, 0.822] & $0.0005$ \\
+R2\_test\_ood & \texttt{(Intercept)} & 0.991 & 0.155 & 1.6 & 6.41 & [0.132, 1.850] & $0.0401$ \\
+R2\_test\_ood & \texttt{BGLM\_Oracle\_Basis} & -0.083 & 0.104 & 38.0 & -0.80 & [-0.293, 0.127] & $0.4286$ \\
+R2\_test\_ood & \texttt{BGLM\_Overcomplete} & -0.337 & 0.104 & 38.0 & -3.25 & [-0.547, -0.127] & $0.0024$ \\
+R2\_test\_ood & \texttt{BGLM\_Poly\_Basis} & -0.006 & 0.104 & 38.0 & -0.06 & [-0.216, 0.204] & $0.9559$ \\
+R2\_test\_ood & \texttt{BGNLM\_Hybrid\_Poly} & -0.006 & 0.104 & 38.0 & -0.06 & [-0.216, 0.204] & $0.9555$ \\
+R2\_test\_ood & \texttt{BGNLM\_IWSM\_Untuned} & -0.172 & 0.104 & 38.0 & -1.65 & [-0.382, 0.038] & $0.1065$ \\
+R2\_test\_ood & \texttt{SINDy\_PI\_Rational} & -0.326 & 0.104 & 38.0 & -3.14 & [-0.536, -0.116] & $0.0033$ \\
+R2\_test\_ood & \texttt{SINDy\_STLSQ\_Oracle} & -0.173 & 0.104 & 38.0 & -1.67 & [-0.383, 0.037] & $0.1041$ \\
+R2\_test\_ood & \texttt{SINDy\_STLSQ\_Poly} & -0.250 & 0.104 & 38.0 & -2.41 & [-0.460, -0.040] & $0.0210$ \\
+R2\_test\_ood & \texttt{SR\_Operon} & -0.173 & 0.104 & 38.0 & -1.66 & [-0.383, 0.037] & $0.1044$ \\
+R2\_test\_ood & \texttt{SR\_PySR} & -0.172 & 0.104 & 38.0 & -1.66 & [-0.383, 0.038] & $0.1047$ \\
+R2\_test\_ood & \texttt{UQ\_SINDy\_Oracle} & -0.499 & 0.104 & 38.0 & -4.81 & [-0.709, -0.289] & $< 10^{-4}$ \\
+R2\_test\_ood & \texttt{UQ\_SINDy\_Poly} & -0.493 & 0.104 & 38.0 & -4.75 & [-0.703, -0.283] & $< 10^{-4}$ \\
+R2\_traj & \texttt{(Intercept)} & 1.000 & 0.064 & 39.0 & 15.70 & [0.871, 1.129] & $< 10^{-4}$ \\
+R2\_traj & \texttt{BGLM\_Oracle\_Basis} & -0.000 & 0.090 & 39.0 & -0.00 & [-0.182, 0.182] & $0.9999$ \\
+R2\_traj & \texttt{BGLM\_Overcomplete} & 0.000 & 0.090 & 39.0 & 0.00 & [-0.182, 0.182] & $0.9997$ \\
+R2\_traj & \texttt{BGLM\_Poly\_Basis} & -0.000 & 0.090 & 39.0 & -0.00 & [-0.182, 0.182] & $0.9995$ \\
+R2\_traj & \texttt{BGNLM\_Hybrid\_Poly} & -0.000 & 0.090 & 39.0 & -0.00 & [-0.182, 0.182] & $0.9996$ \\
+R2\_traj & \texttt{BGNLM\_IWSM\_Untuned} & -0.168 & 0.090 & 39.0 & -1.87 & [-0.350, 0.014] & $0.0693$ \\
+R2\_traj & \texttt{SINDy\_PI\_Rational} & -0.000 & 0.090 & 39.0 & -0.00 & [-0.182, 0.182] & $0.9987$ \\
+R2\_traj & \texttt{SINDy\_STLSQ\_Oracle} & -0.000 & 0.090 & 39.0 & -0.01 & [-0.183, 0.182] & $0.9959$ \\
+R2\_traj & \texttt{SINDy\_STLSQ\_Poly} & -0.003 & 0.090 & 39.0 & -0.03 & [-0.185, 0.179] & $0.9723$ \\
+R2\_traj & \texttt{SR\_Operon} & -0.004 & 0.090 & 39.0 & -0.04 & [-0.186, 0.178] & $0.9659$ \\
+R2\_traj & \texttt{SR\_PySR} & -0.004 & 0.090 & 39.0 & -0.04 & [-0.186, 0.178] & $0.9661$ \\
+R2\_traj & \texttt{UQ\_SINDy\_Oracle} & -0.597 & 0.090 & 39.0 & -6.63 & [-0.779, -0.415] & $< 10^{-4}$ \\
+R2\_traj & \texttt{UQ\_SINDy\_Poly} & -0.689 & 0.090 & 39.0 & -7.65 & [-0.871, -0.507] & $< 10^{-4}$ \\
+\bottomrule
+\end{tabular}
+\end{table*}

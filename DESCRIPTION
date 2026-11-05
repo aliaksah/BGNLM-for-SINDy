@@ -1,0 +1,38 @@
+Package: BGNLMforSINDy
+Type: Package
+Title: Bayesian Generalized Nonlinear Models for Basis-Free SINDy with Model Uncertainty
+Version: 1.0.0
+Authors@R: c(
+    person("Aliaksandr", "Hubin", email = "aliaksandr.hubin@nmbu.no", role = c("aut", "cre")),
+    person("Jon", "Lachmann", role = "aut")
+  )
+Description: Reproducible experimental benchmark pipeline for ICML expanding
+    "Bayesian Generalized Nonlinear Models Offer Basis Free SINDy With Model Uncertainty".
+    Evaluates basis-free BGNLM (GMJMCMC) against predefined-basis BGLM (MJMCMC),
+    classical and Bayesian/Ensemble SINDy, SINDy-PI, and Symbolic Regression (PySR, PyOperon)
+    across 12 synthetic ODE systems and 5 real-world empirical datasets with mixed-effects
+    statistical evaluation.
+License: MIT
+Encoding: UTF-8
+Imports:
+    FBMS (>= 1.3),
+    deSolve,
+    glmnet,
+    signal,
+    data.table,
+    yaml,
+    lme4,
+    lmerTest,
+    glmmTMB,
+    emmeans,
+    broom.mixed,
+    ggplot2,
+    dplyr,
+    tidyr,
+    reticulate,
+    R.utils
+Suggests:
+    testthat (>= 3.0.0),
+    plotly
+RoxygenNote: 7.3.2
+

@@ -1,0 +1,82 @@
+# 5 Canonical Real-World Empirical Benchmark Datasets for SINDy & Equation Discovery
+real_datasets:
+  real01_lynx_hare:
+    dataset_id: 1
+    name: "Hudson Bay Lynx-Hare Pelts"
+    domain: "Ecology"
+    file: "data/real_world/lynx_hare_hudson_bay.csv"
+    state_names: ["x1", "x2"]
+    input_names: []
+    time_col: "time"
+    train_fraction: 0.70
+    subsampling_fraction: 0.85
+    n_replicates: 20
+    reference_model_name: "Lotka-Volterra Predator-Prey"
+    reference_atoms:
+      eq1: ["x1", "x1*x2"]
+      eq2: ["x2", "x1*x2"]
+
+  real02_paramecium_didinium:
+    dataset_id: 2
+    name: "Gause-Veilleux Paramecium-Didinium"
+    domain: "Experimental Microcosm"
+    file: "data/real_world/gause_paramecium_didinium.csv"
+    state_names: ["x1", "x2"]
+    input_names: []
+    time_col: "time"
+    train_fraction: 0.70
+    subsampling_fraction: 0.85
+    n_replicates: 20
+    reference_model_name: "Holling Type-II Predator-Prey"
+    reference_atoms:
+      eq1: ["x1", "x1^2", "x1*x2/(1+x1)"]
+      eq2: ["x2", "x1*x2/(1+x1)"]
+
+  real03_schmidt_pendulum:
+    dataset_id: 3
+    name: "Schmidt-Lipson Physical Pendulum"
+    domain: "Lab Mechanics"
+    file: "data/real_world/schmidt_real_pendulum.csv"
+    state_names: ["x1", "x2"]
+    input_names: []
+    time_col: "time"
+    train_fraction: 0.70
+    subsampling_fraction: 0.85
+    n_replicates: 20
+    reference_model_name: "Damped Nonlinear Pendulum"
+    reference_atoms:
+      eq1: ["x2"]
+      eq2: ["x2", "sin(x1)"]
+
+  real04_cascaded_tanks:
+    dataset_id: 4
+    name: "Cascaded Water Tanks Benchmark"
+    domain: "Nonlinear System Identification"
+    file: "data/real_world/cascaded_tanks_benchmark.csv"
+    state_names: ["x1", "x2"]
+    input_names: ["x3"]
+    time_col: "time"
+    train_fraction: 0.70
+    subsampling_fraction: 0.85
+    n_replicates: 20
+    reference_model_name: "Torricelli Fractional-Power Flow"
+    reference_atoms:
+      eq1: ["sqrt(x1)", "x3"]
+      eq2: ["sqrt(x1)", "sqrt(x2)"]
+
+  real05_yeast_glycolysis:
+    dataset_id: 5
+    name: "Yeast Glycolytic NADH Oscillations"
+    domain: "Biochemistry"
+    file: "data/real_world/yeast_glycolysis_nadh.csv"
+    state_names: ["x1", "x2"]
+    input_names: []
+    time_col: "time"
+    train_fraction: 0.70
+    subsampling_fraction: 0.85
+    n_replicates: 20
+    reference_model_name: "Selkov-Hill Glycolytic Oscillator"
+    reference_atoms:
+      eq1: ["x1", "x1*x2^2/(1+x2^2)"]
+      eq2: ["x1", "x2", "x1*x2^2/(1+x2^2)"]
+

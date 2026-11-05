@@ -1,0 +1,71 @@
+# Hyperparameter Search Space for Systematic BGNLM Tuning (Section 4)
+calibration_suite:
+  systems:
+    - "sys02_lorenz63"
+    - "sys08_rossler_lorenz_hybrid"
+    - "sys04_lotka_volterra"
+  sample_sizes: [250, 1000]
+  noise_levels: [0.01, 0.25]
+  tuning_seeds: [101, 102]
+
+search_space:
+  beta_priors:
+    - id: "g_prior_max_n_p2"
+      type: "g-prior"
+      g_rule: "max_n_p2"
+      var: "unknown"
+    - id: "robust_tcch"
+      type: "robust"
+      var: "unknown"
+    - id: "hyper_g_n"
+      type: "hyper-g-n"
+      var: "unknown"
+    - id: "jeffreys_bic_unknown_var"
+      type: "Jeffreys-BIC"
+      var: "unknown"
+    - id: "jeffreys_fixed_var1_iwsm"
+      type: "Jeffreys-BIC"
+      var: 1.0
+
+  model_prior_r_rules:
+    - id: "r_n_minus_05"
+      formula: "N^(-0.5)"
+    - id: "r_n_minus_10"
+      formula: "N^(-1.0)"
+    - id: "r_n_minus_15"
+      formula: "N^(-1.5)"
+    - id: "r_exp_minus_2"
+      formula: "exp(-2)"
+    - id: "r_exp_minus_4"
+      formula: "exp(-4)"
+
+  operator_probs:
+    - id: "algebraic_focused"
+      p_inter: 0.55
+      p_mod: 0.35
+      p_proj: 0.00
+      p_new: 0.10
+    - id: "low_proj"
+      p_inter: 0.50
+      p_mod: 0.35
+      p_proj: 0.05
+      p_new: 0.10
+    - id: "balanced_inter"
+      p_inter: 0.70
+      p_mod: 0.25
+      p_proj: 0.00
+      p_new: 0.05
+    - id: "default_gmjmcmc"
+      p_inter: 0.40
+      p_mod: 0.40
+      p_proj: 0.10
+      p_new: 0.10
+
+  gmjmcmc_search:
+    pop_max: [15, 25, 35]
+    max_depth_D: [2, 3]
+    P_generations: [15, 25]
+    N_mcmc: [500, 1000]
+    runs: 10
+    transforms_tier: ["transforms_core", "transforms_extended"]
+
