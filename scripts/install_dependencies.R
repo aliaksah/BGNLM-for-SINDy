@@ -4,6 +4,16 @@
 # Installs Required R Packages & Configures Python Virtual Environment (.venv)
 # ==============================================================================
 
+# Ensure a writable user library directory exists (standard on shared Linux/HPC clusters)
+user_lib <- Sys.getenv("R_LIBS_USER")
+if (!nzchar(user_lib)) {
+  user_lib <- path.expand(file.path("~", "R", paste0(R.version$platform, "-library"), paste0(R.version$major, ".", strsplit(R.version$minor, "\\.")[[1]][1])))
+}
+if (!dir.exists(user_lib)) {
+  dir.create(user_lib, recursive = TRUE, showWarnings = FALSE)
+}
+.libPaths(c(user_lib, .libPaths()))
+
 required_r_pkgs <- c(
   "FBMS", "deSolve", "glmnet", "signal", "data.table", "yaml", "jsonlite",
   "lme4", "lmerTest", "glmmTMB", "emmeans", "broom.mixed",
@@ -12,8 +22,8 @@ required_r_pkgs <- c(
 
 for (pkg in required_r_pkgs) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
-    message("[INSTALL] Installing R package: ", pkg)
-    install.packages(pkg, repos = "https://cloud.r-project.org")
+    message("[INSTALL] Installing R package: ", pkg, " into ", user_lib)
+    install.packages(pkg, lib = user_lib, repos = "https://cloud.r-project.org")
   }
 }
 
