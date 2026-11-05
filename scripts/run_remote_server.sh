@@ -10,6 +10,16 @@ THREADS_PER_WORKER=${3:-4}
 START_TASK_USER=${4:-}
 END_TASK_USER=${5:-}
 
+# Load environment modules if available (e.g. on HPC / shared servers)
+if command -v module >/dev/null 2>&1; then
+  module load R/4.5.2-gfbf-2025b 2>/dev/null || true
+  module load Python 2>/dev/null || true
+elif [ -f /etc/profile.d/modules.sh ]; then
+  source /etc/profile.d/modules.sh
+  module load R/4.5.2-gfbf-2025b 2>/dev/null || true
+  module load Python 2>/dev/null || true
+fi
+
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export MKL_NUM_THREADS=1
