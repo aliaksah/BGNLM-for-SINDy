@@ -50,7 +50,8 @@ run_suite() {
 
   echo "[INFO] Launching tasks $start_task to $end_task for suite '$s' across $NUM_WORKERS parallel workers ($THREADS_PER_WORKER threads each)..."
   seq "$start_task" "$end_task" | xargs -n 1 -P "$NUM_WORKERS" -I {} bash -c "
-    Rscript scripts/run_single_task.R --suite $s --task_id {} --cores $THREADS_PER_WORKER > logs/${s}_task_{}.log 2>&1
+    ulimit -v 6291456 2>/dev/null || true # Limit virtual memory per worker to 6 GB to prevent OOM cascade
+    Rscript scripts/run_single_task.R --suite $s --task_id {} --cores $THREADS_PER_WORKER --timeout 300 > logs/${s}_task_{}.log 2>&1
   "
 }
 
