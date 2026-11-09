@@ -5,6 +5,16 @@
 # Usage: Rscript scripts/run_single_task.R --suite <synth|real> --task_id <int> [--cores <int>]
 # ==============================================================================
 
+# Ensure personal R library is loaded if running in non-standard environment
+user_libs <- c(
+  Sys.getenv("R_LIBS_USER"),
+  Sys.getenv("R_LIBS"),
+  "/mn/sarpanitu/ansatte-u2/aliaksah/R/library",
+  path.expand("~/R/library")
+)
+user_libs <- user_libs[nzchar(user_libs) & dir.exists(user_libs)]
+if (length(user_libs) > 0L) .libPaths(unique(c(user_libs, .libPaths())))
+
 suppressPackageStartupMessages({
   library(data.table)
   library(R.utils)
