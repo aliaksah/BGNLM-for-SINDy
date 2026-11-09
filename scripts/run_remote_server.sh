@@ -20,6 +20,14 @@ elif [ -f /etc/profile.d/modules.sh ]; then
   module load Python 2>/dev/null || true
 fi
 
+# Ensure user R package library is in R_LIBS_USER
+if [ -z "${R_LIBS_USER:-}" ]; then
+  R_USER_DIR=$(find ~/R -maxdepth 2 -type d -name "library" 2>/dev/null | head -n 1 || true)
+  if [ -n "$R_USER_DIR" ]; then
+    export R_LIBS_USER="$R_USER_DIR:${R_LIBS_USER:-}"
+  fi
+fi
+
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export MKL_NUM_THREADS=1
