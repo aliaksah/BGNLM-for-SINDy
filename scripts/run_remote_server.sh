@@ -21,12 +21,8 @@ elif [ -f /etc/profile.d/modules.sh ]; then
 fi
 
 # Ensure user R package library is in R_LIBS_USER
-if [ -z "${R_LIBS_USER:-}" ]; then
-  R_USER_DIR=$(find ~/R -maxdepth 2 -type d -name "library" 2>/dev/null | head -n 1 || true)
-  if [ -n "$R_USER_DIR" ]; then
-    export R_LIBS_USER="$R_USER_DIR:${R_LIBS_USER:-}"
-  fi
-fi
+export R_LIBS_USER="${R_LIBS_USER:-/mn/sarpanitu/ansatte-u2/aliaksah/R/library:$HOME/R/library}"
+export R_LIBS="${R_LIBS:-$R_LIBS_USER}"
 
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
