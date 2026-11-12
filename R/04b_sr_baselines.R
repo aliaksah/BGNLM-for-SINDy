@@ -89,7 +89,7 @@ run_sr_baseline <- function(
     canon_j <- extract_canonical_atoms(raw_atoms)
     discovered[[j]] <- canon_j
     # Symbolic regression yields point-estimate Pareto trees without calibrated PIPs
-    pip_list[[j]] <- NULL
+    pip_list[j] <- list(NULL)
 
     inter_j <- as.numeric(res_py$intercepts[j])
     coef_list_j <- res_py$coefs[[j]]

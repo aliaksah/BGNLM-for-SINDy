@@ -4,15 +4,7 @@
 # Prepares, verifies, and standardizes the 5 canonical real-world SINDy datasets
 # ==============================================================================
 
-# Ensure personal R library is loaded if running in non-standard environment
-user_libs <- c(
-  Sys.getenv("R_LIBS_USER"),
-  Sys.getenv("R_LIBS"),
-  "/mn/sarpanitu/ansatte-u2/aliaksah/R/library",
-  path.expand("~/R/library")
-)
-user_libs <- user_libs[nzchar(user_libs) & dir.exists(user_libs)]
-if (length(user_libs) > 0L) .libPaths(unique(c(user_libs, .libPaths())))
+if (file.exists("R/00_env_setup.R")) source("R/00_env_setup.R")
 
 suppressPackageStartupMessages({
   library(deSolve)

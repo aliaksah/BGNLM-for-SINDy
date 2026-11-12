@@ -5,6 +5,8 @@
 # Supports --smoke_test flag for local end-to-end validation
 # ==============================================================================
 
+if (file.exists("R/00_env_setup.R")) source("R/00_env_setup.R")
+
 suppressPackageStartupMessages({
   library(yaml)
   library(data.table)

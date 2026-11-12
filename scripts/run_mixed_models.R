@@ -4,6 +4,8 @@
 # Runs LMM/GLMM Statistical Evaluation & Exports LaTeX Tables and Forest Plots
 # ==============================================================================
 
+if (file.exists("R/00_env_setup.R")) source("R/00_env_setup.R")
+
 suppressPackageStartupMessages({
   library(data.table)
 })

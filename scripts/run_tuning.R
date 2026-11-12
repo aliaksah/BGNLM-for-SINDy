@@ -4,6 +4,7 @@
 # CLI Entrypoint to Execute Phase 4 Systematic BGNLM Prior & GMJMCMC Tuning
 # ==============================================================================
 
+if (file.exists("R/00_env_setup.R")) source("R/00_env_setup.R")
 source("R/07_tuning_engine.R")
 
 args <- commandArgs(trailingOnly = TRUE)

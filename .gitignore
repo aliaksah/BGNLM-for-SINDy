@@ -3,9 +3,11 @@
 .RData
 .Ruserdata
 .venv/
+.r_lib/
 __pycache__/
 *.pyc
 logs/
+run_benchmarks*.log
 results/checkpoints_synth/*.rds
 results/checkpoints_real/*.rds
 results/checkpoints_tuning/*.rds

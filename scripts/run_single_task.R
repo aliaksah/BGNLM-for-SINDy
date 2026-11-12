@@ -5,15 +5,29 @@
 # Usage: Rscript scripts/run_single_task.R --suite <synth|real> --task_id <int> [--cores <int>]
 # ==============================================================================
 
-# Ensure personal R library is loaded if running in non-standard environment
-user_libs <- c(
-  Sys.getenv("R_LIBS_USER"),
-  Sys.getenv("R_LIBS"),
-  "/mn/sarpanitu/ansatte-u2/aliaksah/R/library",
-  path.expand("~/R/library")
-)
-user_libs <- user_libs[nzchar(user_libs) & dir.exists(user_libs)]
-if (length(user_libs) > 0L) .libPaths(unique(c(user_libs, .libPaths())))
+if (file.exists("R/00_env_setup.R")) source("R/00_env_setup.R")
+
+args <- commandArgs(trailingOnly = TRUE)
+get_arg <- function(flag, default = NULL) {
+  idx <- which(args == flag)
+  if (length(idx) > 0L && length(args) > idx[1]) return(args[idx[1] + 1L])
+  default
+}
+
+suite <- get_arg("--suite", "synth")
+task_id <- as.integer(get_arg("--task_id", "1"))
+cores <- as.integer(get_arg("--cores", "1"))
+timeout_sec <- as.numeric(get_arg("--timeout", "300"))
+
+ckpt_dir <- paste0("results/checkpoints_", suite)
+dir.create(ckpt_dir, recursive = TRUE, showWarnings = FALSE)
+ckpt_file <- file.path(ckpt_dir, sprintf("task_%06d.rds", task_id))
+
+# Seamless resumption BEFORE loading heavy packages or manifest
+if (file.exists(ckpt_file)) {
+  message("[SKIP] Checkpoint already exists: ", ckpt_file)
+  quit(save = "no", status = 0L)
+}
 
 suppressPackageStartupMessages({
   library(data.table)
@@ -29,18 +43,6 @@ source("R/04_sindy_baselines.R")
 source("R/04b_sr_baselines.R")
 source("R/10_real_data_experiments.R")
 
-args <- commandArgs(trailingOnly = TRUE)
-get_arg <- function(flag, default = NULL) {
-  idx <- which(args == flag)
-  if (length(idx) > 0L && length(args) > idx[1]) return(args[idx[1] + 1L])
-  default
-}
-
-suite <- get_arg("--suite", "synth")
-task_id <- as.integer(get_arg("--task_id", "1"))
-cores <- as.integer(get_arg("--cores", "2"))
-timeout_sec <- as.numeric(get_arg("--timeout", "600"))
-
 manifest_path <- paste0("config/manifest_", suite, ".csv")
 if (!file.exists(manifest_path)) {
   stop("Manifest file does not exist: ", manifest_path)
@@ -49,16 +51,6 @@ if (!file.exists(manifest_path)) {
 manifest <- fread(manifest_path)
 if (task_id < 1L || task_id > nrow(manifest)) {
   stop("Invalid task_id ", task_id, " (manifest has ", nrow(manifest), " rows).")
-}
-
-ckpt_dir <- paste0("results/checkpoints_", suite)
-dir.create(ckpt_dir, recursive = TRUE, showWarnings = FALSE)
-ckpt_file <- file.path(ckpt_dir, sprintf("task_%06d.rds", task_id))
-
-# Seamless resumption: if checkpoint already exists, exit cleanly (0)
-if (file.exists(ckpt_file)) {
-  message("[SKIP] Checkpoint already exists: ", ckpt_file)
-  quit(save = "no", status = 0L)
 }
 
 row <- manifest[task_id]

@@ -4,6 +4,8 @@
 # Merges Atomic .rds Checkpoints into Master Tables & Computes Jaccard/Nogueira Stability
 # ==============================================================================
 
+if (file.exists("R/00_env_setup.R")) source("R/00_env_setup.R")
+
 suppressPackageStartupMessages({
   library(data.table)
 })
@@ -21,7 +23,18 @@ aggregate_suite <- function(suite = c("synth", "real")) {
     message("[AGGREGATE] No checkpoints found in ", ckpt_dir)
     return(NULL)
   }
-  dt <- rbindlist(lapply(files, readRDS), fill = TRUE)
+  rows_list <- lapply(files, function(f) {
+    tryCatch(readRDS(f), error = function(e) {
+      warning("[AGGREGATE] Skipping corrupted checkpoint: ", f, " (", e$message, ")")
+      NULL
+    })
+  })
+  rows_list <- rows_list[!vapply(rows_list, is.null, logical(1))]
+  if (length(rows_list) == 0L) {
+    message("[AGGREGATE] No valid checkpoints found in ", ckpt_dir)
+    return(NULL)
+  }
+  dt <- rbindlist(rows_list, fill = TRUE)
   setorder(dt, task_id)
 
   out_rds <- file.path("results/aggregated", paste0(suite, "_results.rds"))

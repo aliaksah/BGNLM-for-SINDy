@@ -34,8 +34,9 @@ preprocess_math_string <- function(expr_str) {
 }
 
 #' Convert an R language AST node into a list of additive monomials,
-#' where each monomial is list(coef = numeric, num = character_vec, den = character_vec)
-ast_to_monomials <- function(node) {
+#' where each monomial is list(coef = numeric, num = character_vec, den = character_vec).
+#' Bounded by `depth` and `max_terms` to prevent combinatorial explosion on deeply nested features.
+ast_to_monomials <- function(node, depth = 0L, max_terms = 128L) {
   if (is.numeric(node)) {
     return(list(list(coef = as.numeric(node), num = character(0), den = character(0))))
   }
@@ -49,41 +50,65 @@ ast_to_monomials <- function(node) {
   if (!is.call(node)) {
     return(list(list(coef = 1.0, num = deparse(node), den = character(0))))
   }
+  if (depth > 14L) {
+    expr_txt <- paste(deparse(node, width.cutoff = 500L), collapse = "")
+    return(list(list(coef = 1.0, num = expr_txt, den = character(0))))
+  }
 
   op <- as.character(node[[1]])
   args <- as.list(node)[-1]
 
   # Parentheses
   if (op == "(") {
-    return(ast_to_monomials(args[[1]]))
+    return(ast_to_monomials(args[[1]], depth = depth + 1L, max_terms = max_terms))
   }
 
   # Unary plus / minus
   if (op == "+" && length(args) == 1L) {
-    return(ast_to_monomials(args[[1]]))
+    return(ast_to_monomials(args[[1]], depth = depth + 1L, max_terms = max_terms))
   }
   if (op == "-" && length(args) == 1L) {
-    m1 <- ast_to_monomials(args[[1]])
+    m1 <- ast_to_monomials(args[[1]], depth = depth + 1L, max_terms = max_terms)
     return(lapply(m1, function(m) { m$coef <- -m$coef; m }))
   }
 
   # Binary addition / subtraction
   if (op == "+" && length(args) == 2L) {
-    return(c(ast_to_monomials(args[[1]]), ast_to_monomials(args[[2]])))
+    combined <- c(
+      ast_to_monomials(args[[1]], depth = depth + 1L, max_terms = max_terms),
+      ast_to_monomials(args[[2]], depth = depth + 1L, max_terms = max_terms)
+    )
+    if (length(combined) > max_terms) {
+      expr_txt <- paste(deparse(node, width.cutoff = 500L), collapse = "")
+      return(list(list(coef = 1.0, num = expr_txt, den = character(0))))
+    }
+    return(combined)
   }
   if (op == "-" && length(args) == 2L) {
-    m2 <- lapply(ast_to_monomials(args[[2]]), function(m) { m$coef <- -m$coef; m })
-    return(c(ast_to_monomials(args[[1]]), m2))
+    m2 <- lapply(ast_to_monomials(args[[2]], depth = depth + 1L, max_terms = max_terms), function(m) { m$coef <- -m$coef; m })
+    combined <- c(ast_to_monomials(args[[1]], depth = depth + 1L, max_terms = max_terms), m2)
+    if (length(combined) > max_terms) {
+      expr_txt <- paste(deparse(node, width.cutoff = 500L), collapse = "")
+      return(list(list(coef = 1.0, num = expr_txt, den = character(0))))
+    }
+    return(combined)
   }
 
-  # Multiplication (distributes over sums)
+  # Multiplication (distributes over sums, guarded against combinatorial blowup)
   if (op == "*" && length(args) == 2L) {
-    left_list <- ast_to_monomials(args[[1]])
-    right_list <- ast_to_monomials(args[[2]])
-    out <- list()
+    left_list <- ast_to_monomials(args[[1]], depth = depth + 1L, max_terms = max_terms)
+    right_list <- ast_to_monomials(args[[2]], depth = depth + 1L, max_terms = max_terms)
+    n_prod <- as.numeric(length(left_list)) * as.numeric(length(right_list))
+    if (n_prod > max_terms) {
+      expr_txt <- paste(deparse(node, width.cutoff = 500L), collapse = "")
+      return(list(list(coef = 1.0, num = expr_txt, den = character(0))))
+    }
+    out <- vector("list", as.integer(n_prod))
+    idx_out <- 0L
     for (ml in left_list) {
       for (mr in right_list) {
-        out[[length(out) + 1L]] <- list(
+        idx_out <- idx_out + 1L
+        out[[idx_out]] <- list(
           coef = ml$coef * mr$coef,
           num = c(ml$num, mr$num),
           den = c(ml$den, mr$den)
@@ -95,7 +120,7 @@ ast_to_monomials <- function(node) {
 
   # Division
   if (op == "/" && length(args) == 2L) {
-    left_list <- ast_to_monomials(args[[1]])
+    left_list <- ast_to_monomials(args[[1]], depth = depth + 1L, max_terms = max_terms)
     right_node <- args[[2]]
     # Check if denominator is purely numeric
     if (is.numeric(right_node)) {
@@ -119,18 +144,25 @@ ast_to_monomials <- function(node) {
         return(list(list(coef = 1.0, num = character(0), den = character(0))))
       }
       if (p == 0.5) {
-        arg_c <- canonicalize_single_expression(deparse(base_node))
+        arg_c <- canonicalize_single_expression(paste(deparse(base_node, width.cutoff = 500L), collapse = ""))
         return(list(list(coef = 1.0, num = paste0("sqrt(", arg_c, ")"), den = character(0))))
       }
       if (p == round(p) && p > 0 && p <= 6) {
-        base_list <- ast_to_monomials(base_node)
+        base_list <- ast_to_monomials(base_node, depth = depth + 1L, max_terms = max_terms)
+        if ((as.numeric(length(base_list)) ^ p) > max_terms) {
+          expr_txt <- paste(deparse(node, width.cutoff = 500L), collapse = "")
+          return(list(list(coef = 1.0, num = expr_txt, den = character(0))))
+        }
         res <- base_list
         if (p >= 2) {
           for (k in 2:p) {
-            next_res <- list()
+            n_next <- length(res) * length(base_list)
+            next_res <- vector("list", n_next)
+            idx_n <- 0L
             for (ml in res) {
               for (mr in base_list) {
-                next_res[[length(next_res) + 1L]] <- list(
+                idx_n <- idx_n + 1L
+                next_res[[idx_n]] <- list(
                   coef = ml$coef * mr$coef,
                   num = c(ml$num, mr$num),
                   den = c(ml$den, mr$den)
@@ -147,10 +179,10 @@ ast_to_monomials <- function(node) {
 
   # FBMS custom operator transforms
   if (op == "p2" && length(args) == 1L) {
-    return(ast_to_monomials(call("^", args[[1]], 2)))
+    return(ast_to_monomials(call("^", args[[1]], 2), depth = depth + 1L, max_terms = max_terms))
   }
   if (op == "p3" && length(args) == 1L) {
-    return(ast_to_monomials(call("^", args[[1]], 3)))
+    return(ast_to_monomials(call("^", args[[1]], 3), depth = depth + 1L, max_terms = max_terms))
   }
   if (op == "p0" && length(args) == 1L) {
     return(list(list(coef = 1.0, num = character(0), den = character(0))))
@@ -164,21 +196,21 @@ ast_to_monomials <- function(node) {
     return(list(list(coef = 1.0, num = character(0), den = den_s)))
   }
   if (op == "inv_pos" && length(args) == 1L) {
-    arg_s <- canonicalize_single_expression(paste(deparse(args[[1]]), collapse = ""))
+    arg_s <- canonicalize_single_expression(paste(deparse(args[[1]], width.cutoff = 500L), collapse = ""))
     return(list(list(coef = 1.0, num = character(0), den = paste0("1+", arg_s))))
   }
   if (op == "inv_sq" && length(args) == 1L) {
-    sq_m <- ast_to_monomials(call("^", args[[1]], 2))[[1]]
+    sq_m <- ast_to_monomials(call("^", args[[1]], 2), depth = depth + 1L, max_terms = max_terms)[[1]]
     sq_s <- format_monomial_atom(sq_m)
     return(list(list(coef = 1.0, num = character(0), den = paste0("1+", sq_s))))
   }
   if (op == "hill_2" && length(args) == 1L) {
-    sq_m <- ast_to_monomials(call("^", args[[1]], 2))[[1]]
+    sq_m <- ast_to_monomials(call("^", args[[1]], 2), depth = depth + 1L, max_terms = max_terms)[[1]]
     sq_s <- format_monomial_atom(sq_m)
     return(list(list(coef = 1.0, num = sq_m$num, den = paste0("1+", sq_s))))
   }
   if (op == "abs" && length(args) == 1L) {
-    return(ast_to_monomials(args[[1]]))
+    return(ast_to_monomials(args[[1]], depth = depth + 1L, max_terms = max_terms))
   }
 
   # General unary functions: sin, cos, exp, sqrt, sigmoid, etc.
@@ -266,6 +298,10 @@ extract_canonical_atoms <- function(expr_strings, include_intercept = FALSE) {
     s <- preprocess_math_string(raw_s)
     if (!nzchar(s) || s %in% c("1", "(Intercept)", "Intercept")) {
       if (include_intercept) all_atoms <- c(all_atoms, "1")
+      next
+    }
+    if (nchar(s) > 500L) {
+      all_atoms <- c(all_atoms, substr(s, 1L, 500L))
       next
     }
     parsed <- tryCatch(parse(text = s)[[1]], error = function(e) NULL)
