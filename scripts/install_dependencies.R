@@ -41,8 +41,9 @@ n_cpus <- min(8L, max(1L, n_cores - 1L))
 options(Ncpus = n_cpus)
 message("[ENV] Using Ncpus = ", n_cpus, " for parallel source package compilation.")
 
-required_r_pkgs <- c(
-  "FBMS", "deSolve", "glmnet", "signal", "data.table", "yaml", "jsonlite",
+# CRAN packages needed (remotes added to install from GitHub branches)
+required_cran_pkgs <- c(
+  "remotes", "deSolve", "glmnet", "signal", "data.table", "yaml", "jsonlite",
   "lme4", "lmerTest", "glmmTMB", "emmeans", "broom.mixed",
   "ggplot2", "dplyr", "tidyr", "reticulate", "R.utils", "testthat"
 )
@@ -57,19 +58,31 @@ is_pkg_usable <- function(pkg, lib_loc) {
   }, error = function(e) FALSE)
 }
 
-missing_pkgs <- required_r_pkgs[!vapply(required_r_pkgs, is_pkg_usable, logical(1), lib_loc = target_lib)]
+missing_cran <- required_cran_pkgs[!vapply(required_cran_pkgs, is_pkg_usable, logical(1), lib_loc = target_lib)]
 
-if (length(missing_pkgs) > 0L) {
-  message("[INSTALL] Installing missing R packages (", length(missing_pkgs), "): ",
-          paste(missing_pkgs, collapse = ", "))
+if (length(missing_cran) > 0L) {
+  message("[INSTALL] Installing missing CRAN packages (", length(missing_cran), "): ",
+          paste(missing_cran, collapse = ", "))
   install.packages(
-    missing_pkgs,
+    missing_cran,
     lib = target_lib,
     repos = "https://cloud.r-project.org",
     dependencies = TRUE,
     Ncpus = n_cpus
   )
 }
+
+# Install / update FBMS specifically from GitHub branch: jonlachmann/FBMS@JCS
+message("[INSTALL] Installing FBMS from GitHub: jonlachmann/FBMS@JCS into ", target_lib, "...")
+remotes::install_github(
+  "jonlachmann/FBMS@JCS",
+  lib = target_lib,
+  upgrade = "never",
+  force = TRUE,
+  quiet = FALSE
+)
+
+required_r_pkgs <- c("FBMS", required_cran_pkgs)
 
 # Re-verify every required package loads cleanly
 still_broken <- character(0)
