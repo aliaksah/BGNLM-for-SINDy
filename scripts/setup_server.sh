@@ -33,7 +33,41 @@ export R_LIBS_USER="$REPO_ROOT/.r_lib"
 export R_LIBS="$REPO_ROOT/.r_lib"
 export R_MAKEVARS_USER=/dev/null
 
-# If .venv exists, activate it first so install_dependencies.R uses it
+# Ensure project-local Python .venv uses Python >= 3.9 (RHEL8 default python3 is 3.6 + pip 9.0.3)
+venv_needs_rebuild=0
+if [ ! -x "$REPO_ROOT/.venv/bin/python" ]; then
+  venv_needs_rebuild=1
+else
+  py_ok=$("$REPO_ROOT/.venv/bin/python" -c 'import sys; print(int(sys.version_info >= (3, 9)))' 2>/dev/null || echo "0")
+  if [ "$py_ok" != "1" ]; then
+    echo "[SETUP] Existing .venv uses Python < 3.9; rebuilding with Python 3.11..."
+    rm -rf "$REPO_ROOT/.venv"
+    venv_needs_rebuild=1
+  fi
+fi
+
+if [ "$venv_needs_rebuild" = "1" ]; then
+  export PATH="$HOME/.local/bin:$PATH"
+  if ! command -v uv >/dev/null 2>&1; then
+    echo "[SETUP] Installing uv locally to bootstrap standalone Python 3.11..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
+  fi
+  if command -v uv >/dev/null 2>&1; then
+    uv venv "$REPO_ROOT/.venv" --python 3.11
+    uv pip install --python "$REPO_ROOT/.venv/bin/python" numpy scipy scikit-learn sympy pysindy pandas pyyaml
+    uv pip install --python "$REPO_ROOT/.venv/bin/python" pysr pyoperon || true
+  else
+    echo "[WARN] uv unavailable; falling back to module load Python..."
+    module load Python 2>/dev/null || true
+    python3 -m venv "$REPO_ROOT/.venv"
+    "$REPO_ROOT/.venv/bin/pip" install --upgrade pip
+    "$REPO_ROOT/.venv/bin/pip" install numpy scipy scikit-learn sympy pysindy pandas pyyaml
+    "$REPO_ROOT/.venv/bin/pip" install pysr pyoperon || true
+  fi
+fi
+
+# Activate .venv so install_dependencies.R sees it
 if [ -f "$REPO_ROOT/.venv/bin/activate" ]; then
   # shellcheck disable=SC1091
   source "$REPO_ROOT/.venv/bin/activate"
