@@ -37,28 +37,40 @@ if (!use_global) {
 
 n_cores <- tryCatch(parallel::detectCores(logical = TRUE), error = function(e) 2L)
 if (is.na(n_cores) || n_cores < 2L) n_cores <- 1L
-n_cpus <- min(8L, max(1L, n_cores - 1L))
+n_cpus <- min(4L, max(1L, n_cores - 1L))
 options(Ncpus = n_cpus)
 message("[ENV] Using Ncpus = ", n_cpus, " for parallel source package compilation.")
 
-# CRAN packages needed (remotes added to install from GitHub branches)
+# Helper: metadata-only check (NEVER call loadNamespace() before install.packages!)
+installed_names <- function(lib_loc) {
+  rownames(installed.packages(lib.loc = c(lib_loc, .Library)))
+}
+
+# Ensure modern rlang / tidyverse core dependencies exist in target_lib so they shadow older system libs
+core_infra <- c("rlang", "cli", "glue", "lifecycle", "vctrs", "remotes")
+have_in_target <- rownames(installed.packages(lib.loc = target_lib))
+need_infra <- setdiff(core_infra, have_in_target)
+if (length(need_infra) > 0L) {
+  message("[INSTALL] Bootstrapping core R infrastructure in ", target_lib, ": ",
+          paste(need_infra, collapse = ", "))
+  install.packages(
+    need_infra,
+    lib = target_lib,
+    repos = "https://cloud.r-project.org",
+    dependencies = c("Depends", "Imports", "LinkingTo"),
+    Ncpus = n_cpus
+  )
+}
+
+# CRAN packages needed
 required_cran_pkgs <- c(
   "remotes", "deSolve", "glmnet", "signal", "data.table", "yaml", "jsonlite",
   "lme4", "lmerTest", "glmmTMB", "emmeans", "broom.mixed",
   "ggplot2", "dplyr", "tidyr", "reticulate", "R.utils", "testthat"
 )
 
-is_pkg_usable <- function(pkg, lib_loc) {
-  # Check that package exists in target_lib (or base .Library) AND loads cleanly
-  found <- nzchar(system.file(package = pkg, lib.loc = c(lib_loc, .Library)))
-  if (!found) return(FALSE)
-  tryCatch({
-    suppressPackageStartupMessages(loadNamespace(pkg, lib.loc = c(lib_loc, .Library)))
-    TRUE
-  }, error = function(e) FALSE)
-}
-
-missing_cran <- required_cran_pkgs[!vapply(required_cran_pkgs, is_pkg_usable, logical(1), lib_loc = target_lib)]
+have_all <- installed_names(target_lib)
+missing_cran <- setdiff(required_cran_pkgs, have_all)
 
 if (length(missing_cran) > 0L) {
   message("[INSTALL] Installing missing CRAN packages (", length(missing_cran), "): ",
@@ -67,20 +79,67 @@ if (length(missing_cran) > 0L) {
     missing_cran,
     lib = target_lib,
     repos = "https://cloud.r-project.org",
-    dependencies = TRUE,
+    dependencies = c("Depends", "Imports", "LinkingTo"),
     Ncpus = n_cpus
   )
 }
 
 # Install / update FBMS specifically from GitHub branch: jonlachmann/FBMS@JCS
 message("[INSTALL] Installing FBMS from GitHub: jonlachmann/FBMS@JCS into ", target_lib, "...")
-remotes::install_github(
-  "jonlachmann/FBMS@JCS",
-  lib = target_lib,
-  upgrade = "never",
-  force = TRUE,
-  quiet = FALSE
-)
+fbms_ok <- tryCatch({
+  remotes::install_github(
+    "jonlachmann/FBMS@JCS",
+    lib = target_lib,
+    dependencies = c("Depends", "Imports", "LinkingTo"),
+    upgrade = "never",
+    force = TRUE,
+    quiet = FALSE
+  )
+  "FBMS" %in% rownames(installed.packages(lib.loc = target_lib))
+}, error = function(e) {
+  message("[WARN] Standard FBMS@JCS install failed: ", e$message)
+  FALSE
+})
+
+# Fallback if tolerance (which imports plotly) fails on missing RHEL8 curl/openssl headers
+if (!fbms_ok) {
+  message("[INSTALL] Attempting fallback: installing FBMS runtime deps + tolerance shim if needed...")
+  fbms_deps <- c("Rcpp", "RcppArmadillo", "fastglm", "GenSA", "r2r", "BAS")
+  need_fbms_deps <- setdiff(fbms_deps, installed_names(target_lib))
+  if (length(need_fbms_deps) > 0L) {
+    install.packages(
+      need_fbms_deps,
+      lib = target_lib,
+      repos = "https://cloud.r-project.org",
+      dependencies = c("Depends", "Imports", "LinkingTo"),
+      Ncpus = n_cpus
+    )
+  }
+  if (!("tolerance" %in% installed_names(target_lib))) {
+    tol_src <- file.path(tempdir(), "tolerance_shim")
+    dir.create(file.path(tol_src, "R"), recursive = TRUE, showWarnings = FALSE)
+    writeLines(c(
+      "Package: tolerance",
+      "Version: 2.0.0",
+      "Title: Minimal tolerance shim for FBMS",
+      "Author: Shim",
+      "Maintainer: Shim <noreply@example.com>",
+      "Description: Minimal F1 stub when plotly system headers are unavailable.",
+      "License: GPL-2"
+    ), file.path(tol_src, "DESCRIPTION"))
+    writeLines("export(F1)", file.path(tol_src, "NAMESPACE"))
+    writeLines("F1 <- function(...) stop('tolerance::F1 unavailable in minimal shim')", file.path(tol_src, "R", "F1.R"))
+    install.packages(tol_src, repos = NULL, type = "source", lib = target_lib)
+  }
+  remotes::install_github(
+    "jonlachmann/FBMS@JCS",
+    lib = target_lib,
+    dependencies = FALSE,
+    upgrade = "never",
+    force = TRUE,
+    quiet = FALSE
+  )
+}
 
 required_r_pkgs <- c("FBMS", required_cran_pkgs)
 

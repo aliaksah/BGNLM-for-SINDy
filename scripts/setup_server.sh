@@ -31,6 +31,7 @@ mkdir -p "$REPO_ROOT/.r_lib" results/checkpoints_synth results/checkpoints_real 
 
 export R_LIBS_USER="$REPO_ROOT/.r_lib"
 export R_LIBS="$REPO_ROOT/.r_lib"
+export R_MAKEVARS_USER=/dev/null
 
 # If .venv exists, activate it first so install_dependencies.R uses it
 if [ -f "$REPO_ROOT/.venv/bin/activate" ]; then
