@@ -62,10 +62,13 @@ if [[ ! -f "config/manifest_synth.csv" || ! -f "config/manifest_real.csv" ]]; th
 fi
 
 # Resolve OS timeout command if available (GNU coreutils on Linux)
+TASK_TIMEOUT=${TASK_TIMEOUT:-600}
+OS_TIMEOUT=$((TASK_TIMEOUT + 60))
 TIMEOUT_CMD=""
 if command -v timeout >/dev/null 2>&1; then
-  TIMEOUT_CMD="timeout -k 15 360"
+  TIMEOUT_CMD="timeout -k 15 ${OS_TIMEOUT}"
 fi
+export TASK_TIMEOUT
 export TIMEOUT_CMD
 
 run_suite() {
@@ -112,7 +115,7 @@ run_suite() {
   run_one_task() {
     local tid="$1"
     local tlog="logs/${SUITE_CUR}_task_${tid}.log"
-    if ${TIMEOUT_CMD} Rscript scripts/run_single_task.R --suite "${SUITE_CUR}" --task_id "${tid}" --cores "${THREADS_PER_WORKER}" --timeout 300 > "${tlog}" 2>&1; then
+    if ${TIMEOUT_CMD} Rscript scripts/run_single_task.R --suite "${SUITE_CUR}" --task_id "${tid}" --cores "${THREADS_PER_WORKER}" --timeout "${TASK_TIMEOUT}" > "${tlog}" 2>&1; then
       rm -f "${tlog}"
     else
       local rc=$?

@@ -187,9 +187,21 @@ run_fbms_method <- function(
     }
   }
 
-  X_tr <- build_X_fn(X_tr_raw)
-  X_in <- build_X_fn(X_in_raw)
-  X_ood <- build_X_fn(X_ood_raw)
+  X_tr_full <- build_X_fn(X_tr_raw)
+  X_in_full <- build_X_fn(X_in_raw)
+  X_ood_full <- build_X_fn(X_ood_raw)
+
+  # Drop constant / zero-variance columns so FBMS:::check.data() never fails
+  active_cols <- which(apply(X_tr_full, 2, function(z) {
+    s <- suppressWarnings(sd(z))
+    is.finite(s) && s > 1e-12 && any(z != z[1])
+  }))
+  if (length(active_cols) == 0L) {
+    active_cols <- seq_len(min(1L, ncol(X_tr_full)))
+  }
+  X_tr <- X_tr_full[, active_cols, drop = FALSE]
+  X_in <- X_in_full[, active_cols, drop = FALSE]
+  X_ood <- X_ood_full[, active_cols, drop = FALSE]
   orig_labels <- colnames(X_tr)
 
   # Safe R syntactic column names for FBMS formula interface, mapped back via orig_labels
@@ -430,7 +442,7 @@ run_fbms_method <- function(
 
   # Construct fast RHS predictor for ODE trajectory rollout
   predict_rhs_fn <- function(X_state_mat) {
-    X_full <- build_X_fn(X_state_mat)
+    X_full <- build_X_fn(X_state_mat)[, active_cols, drop = FALSE]
     X_df_new <- as.data.frame(X_full)
     colnames(X_df_new) <- orig_labels
     out_d <- matrix(0.0, nrow = nrow(X_df_new), ncol = m)
