@@ -85,20 +85,29 @@ run_sr_baseline <- function(
   eq_models <- vector("list", m)
 
   for (j in seq_len(m)) {
-    raw_atoms <- if (length(res_py$discovered) >= j) as.character(res_py$discovered[[j]]) else character(0)
+    raw_atoms <- if (is.list(res_py$discovered) && length(res_py$discovered) >= j) {
+      as.character(res_py$discovered[[j]])
+    } else if (is.matrix(res_py$discovered) && nrow(res_py$discovered) >= j && ncol(res_py$discovered) > 0L) {
+      as.character(res_py$discovered[j, ])
+    } else {
+      character(0)
+    }
     canon_j <- extract_canonical_atoms(raw_atoms)
     discovered[[j]] <- canon_j
     # Symbolic regression yields point-estimate Pareto trees without calibrated PIPs
     pip_list[j] <- list(NULL)
 
     inter_j <- as.numeric(res_py$intercepts[j])
-    coef_list_j <- res_py$coefs[[j]]
     if (is.data.frame(res_py$coefs)) {
-      coef_vec <- as.numeric(res_py$coefs[j, ])
-      names(coef_vec) <- colnames(res_py$coefs)
-      coef_vec <- coef_vec[!is.na(coef_vec) & abs(coef_vec) > 0]
-    } else if (is.list(coef_list_j) && length(coef_list_j) > 0L) {
-      coef_vec <- unlist(coef_list_j)
+      if (ncol(res_py$coefs) > 0L && nrow(res_py$coefs) >= j) {
+        coef_vec <- as.numeric(res_py$coefs[j, ])
+        names(coef_vec) <- colnames(res_py$coefs)
+        coef_vec <- coef_vec[!is.na(coef_vec) & abs(coef_vec) > 0]
+      } else {
+        coef_vec <- numeric(0)
+      }
+    } else if (is.list(res_py$coefs) && length(res_py$coefs) >= j && is.list(res_py$coefs[[j]]) && length(res_py$coefs[[j]]) > 0L) {
+      coef_vec <- unlist(res_py$coefs[[j]])
     } else {
       coef_vec <- numeric(0)
     }

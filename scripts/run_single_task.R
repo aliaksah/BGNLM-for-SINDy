@@ -77,7 +77,7 @@ if (suite == "synth") {
   )
 }
 
-# Execute method under CPU/elapsed timeout guard
+# Execute method under wall-clock (elapsed) timeout guard (cpu = Inf avoids premature RUSAGE_CHILDREN kills in mclapply)
 t_start <- proc.time()[3]
 gc_before <- gc(reset = TRUE)
 
@@ -98,7 +98,7 @@ fit_res <- tryCatch(
     } else {
       stop("Unknown method_id: ", method_id)
     }
-  }, timeout = timeout_sec, onTimeout = "error"),
+  }, timeout = timeout_sec, cpu = Inf, elapsed = timeout_sec, onTimeout = "error"),
   error = function(e) {
     warning("Method ", method_id, " encountered error on task ", task_id, ": ", e$message)
     NULL

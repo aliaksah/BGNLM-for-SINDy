@@ -21,28 +21,48 @@ prune_suite <- function(suite = c("synth", "real"), dry_run = FALSE) {
     return(invisible(NULL))
   }
 
-  n_cores <- min(8L, max(1L, detectCores() - 1L))
-  is_failed <- unlist(mclapply(files, function(f) {
-    ok <- tryCatch({
-      dt <- readRDS(f)
-      !is.null(dt) && nrow(dt) >= 1L && identical(as.character(dt$Status[1]), "OK")
-    }, error = function(e) FALSE)
-    !ok
-  }, mc.cores = n_cores))
+  # Fast path: use aggregated results RDS if its row count matches disk checkpoints
+  agg_rds <- file.path("results/aggregated", paste0(suite, "_results.rds"))
+  failed_files <- NULL
+  if (file.exists(agg_rds)) {
+    agg <- tryCatch(readRDS(agg_rds), error = function(e) NULL)
+    if (!is.null(agg) && nrow(agg) == length(files) && "Status" %in% names(agg) && "task_id" %in% names(agg)) {
+      failed_ids <- agg[Status != "OK", task_id]
+      cand_files <- file.path(ckpt_dir, sprintf("task_%06d.rds", failed_ids))
+      failed_files <- cand_files[file.exists(cand_files)]
+      n_ok <- length(files) - length(failed_files)
+      message(sprintf("[PRUNE] (Fast path via %s) Suite '%s': %d total checkpoints, %d OK (kept), %d FAILED (%s).",
+                      agg_rds, suite, length(files), n_ok, length(failed_files), if (dry_run) "dry-run" else "removing"))
+    }
+  }
 
-  failed_files <- files[is_failed]
-  n_ok <- sum(!is_failed)
-  n_fail <- length(failed_files)
-  message(sprintf("[PRUNE] Suite '%s': %d total checkpoints, %d OK (kept), %d FAILED/corrupt (%s).",
-                  suite, length(files), n_ok, n_fail, if (dry_run) "dry-run" else "removing"))
+  if (is.null(failed_files)) {
+    n_cores <- min(8L, max(1L, detectCores() - 1L))
+    is_failed <- unlist(mclapply(files, function(f) {
+      ok <- tryCatch({
+        dt <- readRDS(f)
+        !is.null(dt) && nrow(dt) >= 1L && identical(as.character(dt$Status[1]), "OK")
+      }, error = function(e) FALSE)
+      !ok
+    }, mc.cores = n_cores))
 
-  if (!dry_run && n_fail > 0L) {
+    failed_files <- files[is_failed]
+    n_ok <- sum(!is_failed)
+    n_fail <- length(failed_files)
+    message(sprintf("[PRUNE] Suite '%s': %d total checkpoints, %d OK (kept), %d FAILED/corrupt (%s).",
+                    suite, length(files), n_ok, n_fail, if (dry_run) "dry-run" else "removing"))
+  }
+
+  if (!dry_run && length(failed_files) > 0L) {
     unlink(failed_files)
   }
 }
 
 args <- commandArgs(trailingOnly = TRUE)
 dry_run <- "--dry_run" %in% args
+synth_only <- "--synth_only" %in% args
 
 prune_suite("synth", dry_run = dry_run)
-prune_suite("real", dry_run = dry_run)
+if (!synth_only) {
+  prune_suite("real", dry_run = dry_run)
+}
