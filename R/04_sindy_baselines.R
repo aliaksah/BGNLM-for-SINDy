@@ -209,9 +209,15 @@ run_sindy_baseline <- function(
       boot_inter <- numeric(n_boot)
       boot_active <- matrix(0.0, nrow = n_boot, ncol = p)
 
-      # Use CV-selected threshold scale across bootstrap replicates
-      lam_base <- max(0.03, median(abs(fit_base$coefs[fit_base$active]), na.rm = TRUE) * 0.25)
-      if (!is.finite(lam_base)) lam_base <- 0.05
+      # Use CV-selected standardized threshold directly (fixing prior unstandardized OLS scale mismatch;
+      # set SINDY_LEGACY_UNSTD_THRESH=1 only if reproducing archived v1 bagging runs)
+      if (Sys.getenv("SINDY_LEGACY_UNSTD_THRESH", "0") == "1") {
+        lam_base <- max(0.03, median(abs(fit_base$coefs[fit_base$active]), na.rm = TRUE) * 0.25)
+        if (!is.finite(lam_base)) lam_base <- 0.05
+      } else {
+        lam_base <- max(0.01, as.numeric(fit_base$lambda))
+        if (!is.finite(lam_base)) lam_base <- 0.05
+      }
 
       for (b in seq_len(n_boot)) {
         idx_b <- sample.int(n_obs, size = floor(0.85 * n_obs), replace = TRUE)

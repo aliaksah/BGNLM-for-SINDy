@@ -134,18 +134,29 @@ ast_to_monomials <- function(node, depth = 0L, max_terms = 128L) {
     }))
   }
 
-  # Exponentiation
+  # Exponentiation (unwrap parenthesized / unary constant numeric exponents such as x1^(-1), x1^(0.5))
   if (op == "^" && length(args) == 2L) {
     base_node <- args[[1]]
     exp_node <- args[[2]]
-    if (is.numeric(exp_node)) {
-      p <- as.numeric(exp_node)
+    exp_val <- if (is.numeric(exp_node)) {
+      as.numeric(exp_node)
+    } else if (length(all.vars(exp_node)) == 0L) {
+      tryCatch(as.numeric(eval(exp_node, envir = baseenv())), error = function(e) NA_real_)
+    } else {
+      NA_real_
+    }
+    if (is.finite(exp_val)) {
+      p <- exp_val
       if (p == 0) {
         return(list(list(coef = 1.0, num = character(0), den = character(0))))
       }
       if (p == 0.5) {
         arg_c <- canonicalize_single_expression(paste(deparse(base_node, width.cutoff = 500L), collapse = ""))
         return(list(list(coef = 1.0, num = paste0("sqrt(", arg_c, ")"), den = character(0))))
+      }
+      if (p < 0 && abs(p) == round(abs(p)) && abs(p) <= 6) {
+        den_s <- canonicalize_denominator(call("^", base_node, abs(p)))
+        return(list(list(coef = 1.0, num = character(0), den = den_s)))
       }
       if (p == round(p) && p > 0 && p <= 6) {
         base_list <- ast_to_monomials(base_node, depth = depth + 1L, max_terms = max_terms)

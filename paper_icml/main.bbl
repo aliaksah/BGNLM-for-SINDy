@@ -1,0 +1,144 @@
+\begin{thebibliography}{27}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Barbieri and Berger(2004)]{barbieri2004optimal}
+Maria~Maddalena Barbieri and James~O Berger.
+\newblock Optimal predictive model selection.
+\newblock \emph{The Annals of Statistics}, 32\penalty0 (3):\penalty0 870--897, 2004.
+
+\bibitem[Bates et~al.(2015)Bates, M{\"a}chler, Bolker, and Walker]{bates2015fitting}
+Douglas Bates, Martin M{\"a}chler, Ben Bolker, and Steve Walker.
+\newblock Fitting linear mixed-effects models using {lme4}.
+\newblock \emph{Journal of Statistical Software}, 67\penalty0 (1):\penalty0 1--48, 2015.
+
+\bibitem[Brunton et~al.(2016)Brunton, Proctor, and Kutz]{brunton2016discovering}
+Steven~L Brunton, Joshua~L Proctor, and J~Nathan Kutz.
+\newblock Discovering governing equations from data by sparse identification of nonlinear dynamical systems.
+\newblock \emph{Proceedings of the National Academy of Sciences}, 113\penalty0 (15):\penalty0 3932--3937, 2016.
+
+\bibitem[Burlacu et~al.(2020)Burlacu, Kronberger, and Kommenda]{burlacu2020operon}
+Bogdan Burlacu, Gabriel Kronberger, and Michael Kommenda.
+\newblock Operon {C++}: an efficient genetic programming framework for symbolic regression.
+\newblock In \emph{Proceedings of the 2020 Genetic and Evolutionary Computation Conference Companion}, pages 1562--1570, 2020.
+
+\bibitem[Chartrand(2011)]{chartrand2011numerical}
+Rick Chartrand.
+\newblock Numerical differentiation of noisy, nonsmooth data.
+\newblock \emph{ISRN Applied Mathematics}, 2011:\penalty0 164564, 2011.
+
+\bibitem[Cranmer(2023)]{cranmer2023interpretable}
+Miles Cranmer.
+\newblock Interpretable machine learning for science with {PySR} and {SymbolicRegression.jl}.
+\newblock \emph{arXiv preprint arXiv:2305.01582}, 2023.
+
+\bibitem[Dunnett(1955)]{dunnett1955multiple}
+Charles~W Dunnett.
+\newblock A multiple comparison procedure for comparing several treatments with a control.
+\newblock \emph{Journal of the American Statistical Association}, 50\penalty0 (272):\penalty0 1096--1121, 1955.
+
+\bibitem[Fasel et~al.(2022)Fasel, Kutz, Brunton, and Brunton]{fasel2022ensemble}
+Urban Fasel, J~Nathan Kutz, Bingni~W Brunton, and Steven~L Brunton.
+\newblock Ensemble-{SINDy}: Robust sparse model discovery in the low-data, high-noise limit, with active learning and control.
+\newblock \emph{Proceedings of the Royal Society A}, 478\penalty0 (2260):\penalty0 20210904, 2022.
+
+\bibitem[Gause(1934)]{gause1934struggle}
+Georgii~Frantsevich Gause.
+\newblock \emph{The Struggle for Existence}.
+\newblock Williams \& Wilkins, 1934.
+
+\bibitem[Hirsh et~al.(2022)Hirsh, Barajas-Solano, and Kutz]{hirsh2022sparsifying}
+Seth~M Hirsh, David~A Barajas-Solano, and J~Nathan Kutz.
+\newblock Sparsifying priors for {Bayesian} uncertainty quantification in model discovery.
+\newblock \emph{Royal Society Open Science}, 9\penalty0 (2):\penalty0 211823, 2022.
+
+\bibitem[Hubin(2025)]{hubin2025bgnlm}
+Aliaksandr Hubin.
+\newblock {Bayesian} generalized nonlinear models offer basis free {SINDy} with model uncertainty.
+\newblock \emph{arXiv preprint arXiv:2507.06776}, 2025.
+
+\bibitem[Hubin et~al.(2021)Hubin, Storvik, and Frommlet]{hubin2021flexible}
+Aliaksandr Hubin, Geir Storvik, and Florian Frommlet.
+\newblock Flexible {Bayesian} nonlinear model configuration.
+\newblock \emph{Journal of Artificial Intelligence Research}, 72:\penalty0 901--942, 2021.
+
+\bibitem[Kaheman et~al.(2020)Kaheman, Kutz, and Brunton]{kaheman2020sindy}
+Kadierdan Kaheman, J~Nathan Kutz, and Steven~L Brunton.
+\newblock {SINDy-PI}: a robust algorithm for parallel implicit sparse identification of nonlinear dynamics.
+\newblock \emph{Proceedings of the Royal Society A}, 476\penalty0 (2242):\penalty0 20200279, 2020.
+
+\bibitem[Kass and Wasserman(1995)]{kass1995reference}
+Robert~E. Kass and Larry Wasserman.
+\newblock A reference {Bayesian} test for nested hypotheses and its relationship to the {Schwarz} criterion.
+\newblock \emph{Journal of the American Statistical Association}, 90\penalty0 (431):\penalty0 928--934, 1995.
+\newblock \doi{10.1080/01621459.1995.10476592}.
+
+\bibitem[Kuznetsova et~al.(2017)Kuznetsova, Brockhoff, and Christensen]{kuznetsova2017lmertest}
+Alexandra Kuznetsova, Per~B Brockhoff, and Rune H~B Christensen.
+\newblock {lmerTest} package: tests in linear mixed effects models.
+\newblock \emph{Journal of Statistical Software}, 82\penalty0 (13):\penalty0 1--26, 2017.
+
+\bibitem[La~Cava et~al.(2021)La~Cava, Orzechowski, Burlacu, de~Fran{\c{c}}a, Virgolin, Jin, Kommenda, and Moore]{lacava2021contemporary}
+William La~Cava, Patryk Orzechowski, Bogdan Burlacu, Fabr{\'\i}cio~Olivetti de~Fran{\c{c}}a, Marco Virgolin, Ying Jin, Michael Kommenda, and Jason~H Moore.
+\newblock Contemporary symbolic regression methods and their relative performance.
+\newblock \emph{Advances in Neural Information Processing Systems Datasets and Benchmarks Track}, 2021.
+
+\bibitem[Lachmann and Hubin(2025)]{lachmann2025fbms}
+Jon Lachmann and Aliaksandr Hubin.
+\newblock {FBMS}: An {R} package for flexible {Bayesian} model selection and nonlinear feature discovery.
+\newblock \emph{arXiv preprint arXiv:2509.00753}, 2025.
+
+\bibitem[Lenth(2024)]{lenth2024emmeans}
+Russell~V Lenth.
+\newblock \emph{{emmeans}: Estimated Marginal Means, aka Least-Squares Means}, 2024.
+\newblock R package version 1.10.0.
+
+\bibitem[Liang et~al.(2008)Liang, Paulo, Molina, Clyde, and Berger]{liang2008mixtures}
+Feng Liang, Rui Paulo, German Molina, Merlise~A Clyde, and Jim~O Berger.
+\newblock Mixtures of $g$ priors for {Bayesian} variable selection.
+\newblock \emph{Journal of the American Statistical Association}, 103\penalty0 (481):\penalty0 410--423, 2008.
+
+\bibitem[Messenger and Bortz(2021)]{messenger2021weak}
+Daniel~A Messenger and David~M Bortz.
+\newblock Weak {SINDy}: {Galerkin}-based data-driven model selection for {PDEs} and {ODEs}.
+\newblock \emph{SIAM Journal on Scientific Computing}, 43\penalty0 (5):\penalty0 A3229--A3253, 2021.
+
+\bibitem[Nogueira et~al.(2018)Nogueira, Sechidis, and Brown]{nogueira2018stability}
+Sarah Nogueira, Konstantinos Sechidis, and Gavin Brown.
+\newblock On the stability of feature selection algorithms.
+\newblock \emph{Journal of Machine Learning Research}, 18\penalty0 (174):\penalty0 1--54, 2018.
+
+\bibitem[Odum(1953)]{odum1953fundamentals}
+Eugene~P Odum.
+\newblock \emph{Fundamentals of Ecology}.
+\newblock Saunders, 1953.
+
+\bibitem[Richard et~al.(1996)Richard, Bakker, Teusink, van Dam, and Westerhoff]{richard1996yeast}
+Peter Richard, Barbara~M Bakker, Bas Teusink, Karel van Dam, and Hans~V Westerhoff.
+\newblock Yeast cells with a specific cellular make-up and an environment that removes acetaldehyde are required for sustained glycolytic oscillations.
+\newblock \emph{European Journal of Biochemistry}, 235\penalty0 (1-2):\penalty0 238--241, 1996.
+
+\bibitem[Savitzky and Golay(1964)]{savitzky1964smoothing}
+Abraham Savitzky and Marcel J~E Golay.
+\newblock Smoothing and differentiation of data by simplified least squares procedures.
+\newblock \emph{Analytical Chemistry}, 36\penalty0 (8):\penalty0 1627--1639, 1964.
+
+\bibitem[Schmidt and Lipson(2009)]{schmidt2009distilling}
+Michael Schmidt and Hod Lipson.
+\newblock Distilling free-form natural laws from experimental data.
+\newblock \emph{Science}, 324\penalty0 (5923):\penalty0 81--85, 2009.
+
+\bibitem[Schoukens and Noel(2017)]{schoukens2017cascaded}
+Maarten Schoukens and Jean-Philippe Noel.
+\newblock Three benchmarks addressing open challenges in nonlinear system identification.
+\newblock \emph{IFAC-PapersOnLine}, 50\penalty0 (1):\penalty0 446--451, 2017.
+
+\bibitem[Zellner(1986)]{zellner1986assessing}
+Arnold Zellner.
+\newblock On assessing prior distributions and {Bayesian} regression analysis with $g$-prior distributions.
+\newblock In \emph{Bayesian Inference and Decision Techniques: Essays in Honor of Bruno de Finetti}, pages 233--243. Elsevier, 1986.
+
+\end{thebibliography}

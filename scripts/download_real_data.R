@@ -27,7 +27,23 @@ prepare_lynx_hare <- function() {
      7.4,  8.0, 12.3, 19.5, 45.7, 51.1, 29.7, 15.8,  9.7, 10.1,  8.6
   )
 
-  # Extended multi-cycle historical record (spline-interpolated quarterly grid dt=0.25, N=201)
+  if (Sys.getenv("USE_AUTHENTIC_EMPIRICAL", "0") == "1") {
+    # Authentic 1900-1920 Hudson Bay Company historical lynx-hare pelts (cubic-spline interpolated dt=0.25)
+    t_grid <- seq(0, 20, by = 0.25)
+    t_obs <- years_core - years_core[1]
+    sp_hare <- stats::spline(t_obs, hare_core, xout = t_grid, method = "natural")$y
+    sp_lynx <- stats::spline(t_obs, lynx_core, xout = t_grid, method = "natural")$y
+    df_auth <- data.frame(
+      time = round(t_grid, 4),
+      year = round(1900 + t_grid, 2),
+      x1 = round(pmax(1.0, sp_hare), 4),
+      x2 = round(pmax(1.0, sp_lynx), 4)
+    )
+    write.csv(df_auth, "data/real_world/lynx_hare_authentic_1900_1920.csv", row.names = FALSE)
+    message("[OK] Wrote data/real_world/lynx_hare_authentic_1900_1920.csv (N = ", nrow(df_auth), ")")
+  }
+
+  # Extended multi-cycle Lotka-Volterra record (quasi-empirical noisy ODE, dt=0.25, N=201)
   set.seed(1845)
   lv_rhs <- function(t, s, p) {
     x1 <- max(s[1], 0.1); x2 <- max(s[2], 0.1)

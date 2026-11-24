@@ -1,42 +1,54 @@
 \begin{table}[t]
 \centering
-\caption{Random-Effects Variance Decomposition and Intraclass Correlation Coefficients (ICC).}
+\caption{Complete Random-Effects Variance Decomposition and Intraclass Correlation Coefficients (ICC).}
 \label{tab:mixed_effects_icc}
-\small
-\begin{tabular}{llccc}
+\scriptsize
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{llcccc}
 \toprule
-Model & Random Effect Group & Variance $\hat{\sigma}^2$ & Std. Dev. $\hat{\sigma}$ & ICC \\
+Model & Random Effect Group & $\hat{\sigma}^2$ & $\hat{\sigma}$ & ICC & Singular \\
 \midrule
-Synth\_F1 & \texttt{System:Seed\_ID} & 0.0029 & 0.0535 & 0.013 \\
-Synth\_F1 & \texttt{System} & 0.1578 & 0.3972 & 0.743 \\
-Synth\_F1 & \texttt{Residual} & 0.0517 & 0.2273 & 0.243 \\
-Synth\_TPR & \texttt{System:Seed\_ID} & 0.0021 & 0.0461 & 0.023 \\
-Synth\_TPR & \texttt{System} & 0.0506 & 0.2249 & 0.540 \\
-Synth\_TPR & \texttt{Residual} & 0.0409 & 0.2023 & 0.437 \\
-Synth\_FDR & \texttt{System:Seed\_ID} & 0.0025 & 0.0496 & 0.021 \\
-Synth\_FDR & \texttt{System} & 0.0263 & 0.1621 & 0.229 \\
-Synth\_FDR & \texttt{Residual} & 0.0862 & 0.2937 & 0.750 \\
-Synth\_R2\_test\_in & \texttt{System:Seed\_ID} & 0.0032 & 0.0566 & 0.050 \\
-Synth\_R2\_test\_in & \texttt{System} & 0.0401 & 0.2002 & 0.621 \\
-Synth\_R2\_test\_in & \texttt{Residual} & 0.0213 & 0.1459 & 0.330 \\
-Synth\_R2\_test\_ood & \texttt{System:Seed\_ID} & 0.0083 & 0.0909 & 0.084 \\
-Synth\_R2\_test\_ood & \texttt{System} & 0.0521 & 0.2282 & 0.527 \\
-Synth\_R2\_test\_ood & \texttt{Residual} & 0.0386 & 0.1964 & 0.390 \\
-Synth\_R2\_traj & \texttt{System:Seed\_ID} & 0.0156 & 0.1251 & 0.119 \\
-Synth\_R2\_traj & \texttt{System} & 0.0730 & 0.2702 & 0.555 \\
-Synth\_R2\_traj & \texttt{Residual} & 0.0428 & 0.2069 & 0.326 \\
-Real\_R2\_traj & \texttt{Dataset:Fold\_UID} & 0.0000 & 0.0000 & 0.000 \\
-Real\_R2\_traj & \texttt{Dataset} & 0.1766 & 0.4203 & 0.883 \\
-Real\_R2\_traj & \texttt{Residual} & 0.0234 & 0.1529 & 0.117 \\
-Real\_NRMSE\_traj & \texttt{Dataset:Fold\_UID} & 0.0000 & 0.0000 & 0.000 \\
-Real\_NRMSE\_traj & \texttt{Dataset} & 1.5442 & 1.2426 & 0.419 \\
-Real\_NRMSE\_traj & \texttt{Residual} & 2.1419 & 1.4635 & 0.581 \\
-Real\_R2\_test\_ood & \texttt{Dataset:Fold\_UID} & 0.0000 & 0.0000 & 0.000 \\
-Real\_R2\_test\_ood & \texttt{Dataset} & 0.1813 & 0.4258 & 0.918 \\
-Real\_R2\_test\_ood & \texttt{Residual} & 0.0161 & 0.1271 & 0.082 \\
-Real\_F1 & \texttt{Dataset:Fold\_UID} & 0.0001 & 0.0108 & 0.001 \\
-Real\_F1 & \texttt{Dataset} & 0.0536 & 0.2314 & 0.570 \\
-Real\_F1 & \texttt{Residual} & 0.0403 & 0.2007 & 0.429 \\
+Synth\_F1 & \texttt{System:Seed\_ID} & 0.0048 & 0.0689 & 0.044 & No \\
+Synth\_F1 & \texttt{System:Method} & 0.0268 & 0.1637 & 0.251 & No \\
+Synth\_F1 & \texttt{System} & 0.0482 & 0.2195 & 0.451 & No \\
+Synth\_F1 & \texttt{Residual} & 0.0271 & 0.1647 & 0.254 & No \\
+Synth\_TPR & \texttt{System:Seed\_ID} & 0.0035 & 0.0591 & 0.037 & No \\
+Synth\_TPR & \texttt{System:Method} & 0.0194 & 0.1394 & 0.204 & No \\
+Synth\_TPR & \texttt{System} & 0.0491 & 0.2215 & 0.516 & No \\
+Synth\_TPR & \texttt{Residual} & 0.0231 & 0.1520 & 0.243 & No \\
+Synth\_FDR & \texttt{System:Seed\_ID} & 0.0058 & 0.0760 & 0.049 & No \\
+Synth\_FDR & \texttt{System:Method} & 0.0469 & 0.2167 & 0.396 & No \\
+Synth\_FDR & \texttt{System} & 0.0227 & 0.1506 & 0.191 & No \\
+Synth\_FDR & \texttt{Residual} & 0.0432 & 0.2078 & 0.364 & No \\
+Synth\_R2\_test\_in & \texttt{System:Seed\_ID} & 0.0038 & 0.0613 & 0.058 & No \\
+Synth\_R2\_test\_in & \texttt{System:Method} & 0.0078 & 0.0886 & 0.120 & No \\
+Synth\_R2\_test\_in & \texttt{System} & 0.0395 & 0.1987 & 0.606 & No \\
+Synth\_R2\_test\_in & \texttt{Residual} & 0.0141 & 0.1187 & 0.216 & No \\
+Synth\_R2\_test\_ood & \texttt{System:Seed\_ID} & 0.0094 & 0.0969 & 0.094 & No \\
+Synth\_R2\_test\_ood & \texttt{System:Method} & 0.0159 & 0.1263 & 0.159 & No \\
+Synth\_R2\_test\_ood & \texttt{System} & 0.0508 & 0.2255 & 0.508 & No \\
+Synth\_R2\_test\_ood & \texttt{Residual} & 0.0239 & 0.1547 & 0.239 & No \\
+Synth\_R2\_traj & \texttt{System:Seed\_ID} & 0.0166 & 0.1290 & 0.126 & No \\
+Synth\_R2\_traj & \texttt{System:Method} & 0.0141 & 0.1187 & 0.106 & No \\
+Synth\_R2\_traj & \texttt{System} & 0.0719 & 0.2682 & 0.543 & No \\
+Synth\_R2\_traj & \texttt{Residual} & 0.0299 & 0.1729 & 0.225 & No \\
+Real\_R2\_traj & \texttt{Dataset:Fold\_UID} & 0.0011 & 0.0325 & 0.005 & No \\
+Real\_R2\_traj & \texttt{Dataset:Method} & 0.0213 & 0.1459 & 0.104 & No \\
+Real\_R2\_traj & \texttt{Dataset} & 0.1750 & 0.4183 & 0.858 & No \\
+Real\_R2\_traj & \texttt{Residual} & 0.0065 & 0.0807 & 0.032 & No \\
+Real\_NRMSE\_traj & \texttt{Dataset:Fold\_UID} & 0.0253 & 0.1590 & 0.007 & No \\
+Real\_NRMSE\_traj & \texttt{Dataset:Method} & 1.0177 & 1.0088 & 0.263 & No \\
+Real\_NRMSE\_traj & \texttt{Dataset} & 1.4667 & 1.2111 & 0.379 & No \\
+Real\_NRMSE\_traj & \texttt{Residual} & 1.3605 & 1.1664 & 0.352 & No \\
+Real\_R2\_test\_ood & \texttt{Dataset:Fold\_UID} & 0.0001 & 0.0115 & 0.001 & No \\
+Real\_R2\_test\_ood & \texttt{Dataset:Method} & 0.0205 & 0.1432 & 0.102 & No \\
+Real\_R2\_test\_ood & \texttt{Dataset} & 0.1797 & 0.4240 & 0.894 & No \\
+Real\_R2\_test\_ood & \texttt{Residual} & 0.0008 & 0.0275 & 0.004 & No \\
+Real\_F1 & \texttt{Dataset:Fold\_UID} & 0.0022 & 0.0468 & 0.022 & No \\
+Real\_F1 & \texttt{Dataset:Method} & 0.0335 & 0.1830 & 0.335 & No \\
+Real\_F1 & \texttt{Dataset} & 0.0510 & 0.2258 & 0.510 & No \\
+Real\_F1 & \texttt{Residual} & 0.0133 & 0.1155 & 0.133 & No \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
+}
 \end{table}

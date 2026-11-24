@@ -90,8 +90,14 @@ def generate_candidate_atoms(X: np.ndarray, col_names: list[str]) -> tuple[np.nd
 
 def decompose_sympy_expression(expr_str: str, col_names: list[str]) -> list[str]:
     """Expand a SymPy expression into additive canonical basis atoms."""
-    if not expr_str or expr_str.strip() in ("0", "0.0", "1"):
-        return []
+    atoms, _, _ = extract_native_terms_and_coefs(expr_str, col_names)
+    return atoms
+
+
+def extract_native_terms_and_coefs(expr_str: str, col_names: list[str]) -> tuple[list[str], float, dict[str, float]]:
+    """Expand a SymPy expression into canonical atoms, scalar intercept, and per-atom coefficients."""
+    if not expr_str or expr_str.strip() in ("0", "0.0"):
+        return [], 0.0, {}
     try:
         local_dict = {nm: sp.Symbol(nm, real=True) for nm in col_names}
         local_dict["square"] = lambda z: z ** 2
@@ -99,16 +105,23 @@ def decompose_sympy_expression(expr_str: str, col_names: list[str]) -> list[str]
         expr = sp.sympify(expr_str, locals=local_dict)
         expanded = sp.expand(expr)
         terms = sp.Add.make_args(expanded)
-        atoms = []
+        inter = 0.0
+        coef_map: dict[str, float] = {}
         for t in terms:
             coeff, rest = t.as_coeff_Mul()
-            if abs(float(coeff)) < 1e-8 or rest == 1:
+            c_val = float(coeff)
+            if abs(c_val) < 1e-10:
+                continue
+            if rest == 1:
+                inter += c_val
                 continue
             s_atom = str(rest).replace("**", "^").replace(" ", "")
-            atoms.append(s_atom)
-        return sorted(list(set(atoms)))
+            coef_map[s_atom] = coef_map.get(s_atom, 0.0) + c_val
+        atoms = sorted(list(coef_map.keys()))
+        return atoms, inter, coef_map
     except Exception:
-        return [expr_str]
+        s_raw = str(expr_str).replace("**", "^").strip()
+        return [s_raw], 0.0, {s_raw: 1.0}
 
 
 def fit_evolutionary_pareto_sr(
@@ -316,13 +329,13 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
             )
             model.fit(X_tr, yj, variable_names=col_names)
             sym_expr = str(model.sympy())
-            atoms_j = decompose_sympy_expression(sym_expr, col_names)
+            atoms_j, inter_j, coef_map_j = extract_native_terms_and_coefs(sym_expr, col_names)
             discovered.append(atoms_j)
             pred_tr[:, j] = model.predict(X_tr)
             pred_in[:, j] = model.predict(X_in)
             pred_ood[:, j] = model.predict(X_ood)
-            intercepts_out.append(0.0)
-            coefs_out.append({})
+            intercepts_out.append(inter_j)
+            coefs_out.append(coef_map_j)
         elif use_native_operon:
             from pyoperon.sklearn import SymbolicRegressor
 
@@ -339,13 +352,13 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
             )
             reg.fit(X_tr, yj)
             expr_str = reg.get_model_string(reg.model_, names=col_names)
-            atoms_j = decompose_sympy_expression(expr_str, col_names)
+            atoms_j, inter_j, coef_map_j = extract_native_terms_and_coefs(expr_str, col_names)
             discovered.append(atoms_j)
             pred_tr[:, j] = reg.predict(X_tr)
             pred_in[:, j] = reg.predict(X_in)
             pred_ood[:, j] = reg.predict(X_ood)
-            intercepts_out.append(0.0)
-            coefs_out.append({})
+            intercepts_out.append(inter_j)
+            coefs_out.append(coef_map_j)
         else:
             rule = "pysr_best" if method_id == "SR_PySR" else "operon_mdl"
             supp, coefs, inter = fit_evolutionary_pareto_sr(

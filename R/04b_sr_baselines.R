@@ -128,7 +128,8 @@ run_sr_baseline <- function(
     out_d <- matrix(0.0, nrow = nrow(X_df_new), ncol = m)
     for (j in seq_len(m)) {
       mod_j <- eq_models[[j]]
-      val <- rep(mod_j$intercept, nrow(X_df_new))
+      inter_val <- if (is.finite(mod_j$intercept)) mod_j$intercept else 0.0
+      val <- rep(inter_val, nrow(X_df_new))
       if (length(mod_j$coefs) > 0L) {
         for (nm in names(mod_j$coefs)) {
           val <- val + mod_j$coefs[[nm]] * evaluate_basis_atom(nm, X_df_new)

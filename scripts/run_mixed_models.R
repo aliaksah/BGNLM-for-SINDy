@@ -35,11 +35,27 @@ if (file.exists(synth_file)) {
   if (nrow(res_synth$regime_effects) > 0L) {
     fwrite(res_synth$regime_effects, "results/aggregated/mixed_effects_synth_regime.csv")
   }
+  if (!is.null(res_synth$glmm_effects) && nrow(res_synth$glmm_effects) > 0L) {
+    fwrite(res_synth$glmm_effects, "results/aggregated/mixed_effects_synth_glmm.csv")
+    export_mixed_effects_latex_table(
+      res_synth$glmm_effects,
+      out_path = "results/tables/table_mixed_effects_glmm.tex",
+      caption_str = "Binomial GLMM Log-Odds Contrasts for Exact System Recovery $I_{\\text{exact}} \\in \\{0,1\\}$ (Reference: \\texttt{BGNLM\\_Full\\_Tuned}).",
+      label_str = "tab:mixed_effects_glmm"
+    )
+  }
+
+  # Held-out 9-system validation LMM (excluding tuning systems sys02, sys04, sys08)
+  df_held9 <- df_synth[!System %in% c("sys02_lorenz63", "sys04_lotka_volterra", "sys08_rossler_lorenz_hybrid")]
+  if (nrow(df_held9) > 0L) {
+    res_held9 <- analyze_synthetic_mixed_effects(df_held9)
+    fwrite(res_held9$fixed_effects[Metric %in% c("F1", "FDR", "R2_test_ood", "R2_traj")], "results/aggregated/mixed_effects_synth_heldout9.csv")
+  }
 
   export_mixed_effects_latex_table(
     res_synth$fixed_effects[Metric %in% c("F1", "FDR", "R2_test_ood", "R2_traj")],
     out_path = "results/tables/table_mixed_effects_synth.tex",
-    caption_str = "Linear Mixed-Effects Model (LMM) Contrasts on Synthetic Benchmark Suite (Reference: \\texttt{BGNLM\\_Full\\_Tuned}).",
+    caption_str = "Linear Mixed-Effects Model (LMM) Contrasts on Synthetic Benchmark Suite with \\texttt{(1|System:Method)} Random Interaction (Reference: \\texttt{BGNLM\\_Full\\_Tuned}).",
     label_str = "tab:mixed_effects_synth"
   )
 
@@ -47,7 +63,7 @@ if (file.exists(synth_file)) {
     export_mixed_effects_latex_table(
       res_synth$regime_effects,
       out_path = "results/tables/table_mixed_effects_regime.tex",
-      caption_str = "Regime Moderation Interaction LMM (\\texttt{Method * SystemGroup}) Testing Polynomial vs. Non-Polynomial Dynamics.",
+      caption_str = "Regime Moderation Interaction LMM (\\texttt{Method * SystemGroup}) Testing Polynomial vs.\\ Non-Polynomial vs.\\ 5D Dynamics (\\texttt{Group\\_C} comprises 5D Lorenz-96).",
       label_str = "tab:mixed_effects_regime"
     )
   }
@@ -63,7 +79,7 @@ if (file.exists(synth_file)) {
 
 if (file.exists(real_file)) {
   df_real <- readRDS(real_file)
-  message("[MIXED MODELS] Analyzing real-world empirical dataset results (N = ", nrow(df_real), " rows)...")
+  message("[MIXED MODELS] Analyzing quasi-empirical ODE dataset results (N = ", nrow(df_real), " rows)...")
   res_real <- analyze_real_mixed_effects(df_real)
   icc_real <- res_real$icc_table
 
@@ -75,16 +91,16 @@ if (file.exists(real_file)) {
   export_mixed_effects_latex_table(
     res_real$fixed_effects,
     out_path = "results/tables/table_mixed_effects_real.tex",
-    caption_str = "Linear Mixed-Effects Model (LMM) Contrasts on Real-World Empirical Datasets (Reference: \\texttt{BGNLM\\_Full\\_Tuned}).",
+    caption_str = "Linear Mixed-Effects Model (LMM) Contrasts on Quasi-Empirical Literature ODE Benchmarks with \\texttt{(1|Dataset:Method)} Random Interaction (Reference: \\texttt{BGNLM\\_Full\\_Tuned}).",
     label_str = "tab:mixed_effects_real"
   )
 
   plot_mixed_effects_forest(
     res_real$fixed_effects,
     out_pdf = "results/figures/fig_mixed_effects_forest_real.pdf",
-    title_str = "Experiment 2 (Real-World Datasets): Mixed-Effects Contrasts vs. BGNLM_Full_Tuned"
+    title_str = "Experiment 2 (Quasi-Empirical ODEs): Mixed-Effects Contrasts vs. BGNLM_Full_Tuned"
   )
-  message("[OK] Exported real-data mixed-effects tables and forest plots.")
+  message("[OK] Exported quasi-empirical mixed-effects tables and forest plots.")
 }
 
 if (nrow(icc_synth) > 0L || nrow(icc_real) > 0L) {

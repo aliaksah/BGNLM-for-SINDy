@@ -24,31 +24,69 @@ prepare_mixed_model_data <- function(df, ref_method = "BGNLM_Full_Tuned") {
   dt
 }
 
+#' Map raw checkpoint Method IDs to transparent publication labels
+relabel_method_str <- function(x) {
+  x <- as.character(x)
+  map <- c(
+    "SR_PySR" = "SR_Pool_Pareto",
+    "SR_Operon" = "SR_Pool_MDL",
+    "UQ_SINDy_Oracle" = "Bag_STLSQ_Oracle",
+    "UQ_SINDy_Poly" = "Bag_STLSQ_Poly",
+    "SINDy_PI_Rational" = "SINDy_RatPoly2"
+  )
+  for (k in names(map)) {
+    x <- gsub(k, map[[k]], x, fixed = TRUE)
+  }
+  x
+}
+
 #' Compute Intraclass Correlation Coefficients (ICC) from a fitted lme4 model
 extract_random_effects_icc <- function(fit_mer, model_label = "LMM") {
   vc <- as.data.frame(lme4::VarCorr(fit_mer))
   total_var <- sum(vc$vcov, na.rm = TRUE)
   if (!is.finite(total_var) || total_var <= 0) total_var <- 1.0
+  is_sing <- lme4::isSingular(fit_mer)
   data.table(
     Model = model_label,
     Group = vc$grp,
     Variance = vc$vcov,
     StdDev = vc$sdcor,
-    ICC = vc$vcov / total_var
+    ICC = vc$vcov / total_var,
+    Singular = ifelse(is_sing, "Yes", "No")
   )
 }
 
-#' Fit Linear Mixed-Effects Model (LMM) cleanly with automatic random-effects fallback for small smoke-test grids
-safe_fit_lmm <- function(formula_full, formula_simple, data) {
+#' Merge Dunnett-adjusted p-values onto tidy fixed-effects table
+attach_dunnett_pvals <- function(td, emm) {
+  td[, p.dunnett := NA_real_]
+  if (is.null(emm) || nrow(emm) == 0L) return(td)
+  for (i in seq_len(nrow(td))) {
+    trm <- as.character(td$term[i])
+    if (startsWith(trm, "Method")) {
+      m_lvl <- sub("^Method", "", trm)
+      hit <- emm[grepl(paste0("^", m_lvl, "\\b"), contrast) | contrast == paste0(m_lvl, " - BGNLM_Full_Tuned")]
+      if (nrow(hit) >= 1L && "p.value" %in% names(hit)) {
+        td[i, p.dunnett := hit$p.value[1L]]
+      }
+    }
+  }
+  td
+}
+
+#' Fit Linear Mixed-Effects Model (LMM) cleanly with random-effects fallback and singularity logging
+safe_fit_lmm <- function(formula_full, formula_simple, data, label = "LMM") {
   fit <- tryCatch(
-    suppressWarnings(lmerTest::lmer(formula_full, data = data, REML = TRUE)),
+    lmerTest::lmer(formula_full, data = data, REML = TRUE),
     error = function(e) NULL
   )
   if (is.null(fit)) {
     fit <- tryCatch(
-      suppressWarnings(lmerTest::lmer(formula_simple, data = data, REML = TRUE)),
-      error = function(e) lm(nobars(formula_simple), data = data)
+      lmerTest::lmer(formula_simple, data = data, REML = TRUE),
+      error = function(e) lm(lme4::nobars(formula_simple), data = data)
     )
+  }
+  if (inherits(fit, "merMod") && lme4::isSingular(fit)) {
+    message("[LMM NOTE] Singular fit detected in ", label, ": ", paste(deparse(formula(fit)), collapse = " "))
   }
   fit
 }
@@ -75,14 +113,13 @@ analyze_synthetic_mixed_effects <- function(df_synth) {
 
   for (m_name in metrics) {
     if (!m_name %in% names(dt)) next
-    f_full <- as.formula(paste0(m_name, " ~ Method ", covar_str, " + (1 | System) + (1 | System:Seed_ID)"))
+    f_full <- as.formula(paste0(m_name, " ~ Method ", covar_str, " + (1 | System) + (1 | System:Method) + (1 | System:Seed_ID)"))
     f_simp <- as.formula(paste0(m_name, " ~ Method ", covar_str, " + (1 | Seed_ID)"))
-    fit_m <- safe_fit_lmm(f_full, f_simp, dt)
+    fit_m <- safe_fit_lmm(f_full, f_simp, dt, label = paste0("Synth_", m_name))
     lmm_fits[[m_name]] <- fit_m
 
     td <- as.data.table(broom.mixed::tidy(fit_m, effects = "fixed", conf.int = TRUE))
     td[, Metric := m_name]
-    tidy_rows[[length(tidy_rows) + 1L]] <- td
 
     if (inherits(fit_m, "merMod")) {
       icc_rows[[length(icc_rows) + 1L]] <- extract_random_effects_icc(fit_m, model_label = paste0("Synth_", m_name))
@@ -90,10 +127,12 @@ analyze_synthetic_mixed_effects <- function(df_synth) {
 
     # Dunnett-adjusted treatment vs. control (BGNLM_Full_Tuned) contrasts via emmeans
     emm <- tryCatch({
-      em_obj <- suppressMessages(emmeans::emmeans(fit_m, specs = "Method"))
+      em_obj <- suppressMessages(emmeans::emmeans(fit_m, specs = "Method", lmer.df = "satterthwaite", lmerTest.limit = 150000))
       contr <- emmeans::contrast(em_obj, method = "trt.vs.ctrl", ref = 1, adjust = "dunnett")
       as.data.table(summary(contr, infer = c(TRUE, TRUE)))
     }, error = function(e) NULL)
+    td <- attach_dunnett_pvals(td, emm)
+    tidy_rows[[length(tidy_rows) + 1L]] <- td
     if (!is.null(emm)) {
       emm[, Metric := m_name]
       dunnett_rows[[length(dunnett_rows) + 1L]] <- emm
@@ -105,23 +144,24 @@ analyze_synthetic_mixed_effects <- function(df_synth) {
   tidy_regime <- data.table()
   if ("SystemGroup" %in% names(dt) && uniqueN(dt$SystemGroup) > 1L) {
     dt[, SystemGroup := factor(SystemGroup)]
-    f_reg_full <- as.formula(paste0("F1 ~ Method * SystemGroup ", covar_str, " + (1 | System) + (1 | System:Seed_ID)"))
+    f_reg_full <- as.formula(paste0("F1 ~ Method * SystemGroup ", covar_str, " + (1 | System) + (1 | System:Method) + (1 | System:Seed_ID)"))
     f_reg_simp <- as.formula(paste0("F1 ~ Method * SystemGroup ", covar_str, " + (1 | Seed_ID)"))
-    fit_regime <- safe_fit_lmm(f_reg_full, f_reg_simp, dt)
+    fit_regime <- safe_fit_lmm(f_reg_full, f_reg_simp, dt, label = "Synth_Regime")
     tidy_regime <- as.data.table(broom.mixed::tidy(fit_regime, effects = "fixed", conf.int = TRUE))
-    tidy_regime[, Metric := "F1_Regime_Interaction"]
+    tidy_regime[, Metric := "F1_Regime"]
+    tidy_regime[, p.dunnett := p.adjust(p.value, method = "holm")]
   }
 
   # Binomial GLMM for Exact Model Recovery (I_exact in {0, 1})
   fit_glmm <- NULL
   tidy_glmm <- data.table()
   if ("Exact_Recovery" %in% names(dt) && uniqueN(dt$Exact_Recovery) > 1L) {
-    f_glmm <- as.formula(paste0("Exact_Recovery ~ Method ", covar_str, " + (1 | Seed_ID)"))
+    f_glmm <- as.formula(paste0("Exact_Recovery ~ Method ", covar_str, " + (1 | System) + (1 | System:Method)"))
     fit_glmm <- tryCatch(
-      suppressWarnings(glmmTMB::glmmTMB(f_glmm, data = dt, family = binomial(link = "logit"))),
+      glmmTMB::glmmTMB(f_glmm, data = dt, family = binomial(link = "logit")),
       error = function(e) {
         tryCatch(
-          suppressWarnings(lme4::glmer(f_glmm, data = dt, family = binomial(link = "logit"))),
+          glmmTMB::glmmTMB(as.formula(paste0("Exact_Recovery ~ Method ", covar_str, " + (1 | Seed_ID)")), data = dt, family = binomial(link = "logit")),
           error = function(e2) NULL
         )
       }
@@ -131,7 +171,10 @@ analyze_synthetic_mixed_effects <- function(df_synth) {
         as.data.table(broom.mixed::tidy(fit_glmm, effects = "fixed", conf.int = TRUE)),
         error = function(e) data.table()
       )
-      if (nrow(tidy_glmm) > 0L) tidy_glmm[, Metric := "Exact_Recovery_Logit"]
+      if (nrow(tidy_glmm) > 0L) {
+        tidy_glmm[, Metric := "Exact_Recovery_Logit"]
+        tidy_glmm[, p.dunnett := ifelse(startsWith(term, "Method"), p.adjust(p.value, method = "holm"), NA_real_)]
+      }
     }
   }
 
@@ -163,24 +206,25 @@ analyze_real_mixed_effects <- function(df_real) {
 
   for (m_name in metrics) {
     if (!m_name %in% names(dt)) next
-    f_full <- as.formula(paste0(m_name, " ~ Method ", diff_str, " + (1 | Dataset) + (1 | Dataset:Fold_UID)"))
+    f_full <- as.formula(paste0(m_name, " ~ Method ", diff_str, " + (1 | Dataset) + (1 | Dataset:Method) + (1 | Dataset:Fold_UID)"))
     f_simp <- as.formula(paste0(m_name, " ~ Method ", diff_str, " + (1 | Fold_UID)"))
-    fit_m <- safe_fit_lmm(f_full, f_simp, dt)
+    fit_m <- safe_fit_lmm(f_full, f_simp, dt, label = paste0("Real_", m_name))
     lmm_fits[[m_name]] <- fit_m
 
     td <- as.data.table(broom.mixed::tidy(fit_m, effects = "fixed", conf.int = TRUE))
     td[, Metric := m_name]
-    tidy_rows[[length(tidy_rows) + 1L]] <- td
 
     if (inherits(fit_m, "merMod")) {
       icc_rows[[length(icc_rows) + 1L]] <- extract_random_effects_icc(fit_m, model_label = paste0("Real_", m_name))
     }
 
     emm <- tryCatch({
-      em_obj <- suppressMessages(emmeans::emmeans(fit_m, specs = "Method"))
+      em_obj <- suppressMessages(emmeans::emmeans(fit_m, specs = "Method", lmer.df = "satterthwaite", lmerTest.limit = 10000))
       contr <- emmeans::contrast(em_obj, method = "trt.vs.ctrl", ref = 1, adjust = "dunnett")
       as.data.table(summary(contr, infer = c(TRUE, TRUE)))
     }, error = function(e) NULL)
+    td <- attach_dunnett_pvals(td, emm)
+    tidy_rows[[length(tidy_rows) + 1L]] <- td
     if (!is.null(emm)) {
       emm[, Metric := m_name]
       dunnett_rows[[length(dunnett_rows) + 1L]] <- emm
