@@ -142,6 +142,7 @@ run_sr_baseline <- function(
 
   list(
     method_id = method_id,
+    engine = if (!is.null(res_py$engine)) as.character(res_py$engine)[1L] else "unknown",
     discovered = discovered,
     pip_list = pip_list,
     pred_train = pred_train,

@@ -310,56 +310,85 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
         and os.environ.get("PYOPERON_NATIVE", "0") == "1"
     )
 
+    if use_native_pysr:
+        try:
+            from pysr import PySRRegressor  # noqa: F401
+        except Exception as exc:
+            print(f"[WARN] PySR import failed ({exc}); falling back to static pool.", file=sys.stderr)
+            use_native_pysr = False
+
+    if use_native_operon:
+        try:
+            from pyoperon.sklearn import SymbolicRegressor  # noqa: F401
+        except Exception as exc:
+            print(f"[WARN] pyoperon import failed ({exc}); falling back to static pool.", file=sys.stderr)
+            use_native_operon = False
+
+    engine_used = (
+        "native_pysr" if use_native_pysr else ("native_pyoperon" if use_native_operon else "fallback_pool")
+    )
+
     for j in range(m):
         yj = Y_tr[:, j]
+        ran_native = False
         if use_native_pysr:
-            from pysr import PySRRegressor
+            try:
+                from pysr import PySRRegressor
 
-            model = PySRRegressor(
-                niterations=30,
-                binary_operators=["+", "-", "*", "/"],
-                unary_operators=["sin", "cos", "exp", "square", "cube"],
-                maxsize=25,
-                maxdepth=4,
-                model_selection="best",
-                random_state=seed + j,
-                procs=1,
-                progress=False,
-                verbosity=0,
-            )
-            model.fit(X_tr, yj, variable_names=col_names)
-            sym_expr = str(model.sympy())
-            atoms_j, inter_j, coef_map_j = extract_native_terms_and_coefs(sym_expr, col_names)
-            discovered.append(atoms_j)
-            pred_tr[:, j] = model.predict(X_tr)
-            pred_in[:, j] = model.predict(X_in)
-            pred_ood[:, j] = model.predict(X_ood)
-            intercepts_out.append(inter_j)
-            coefs_out.append(coef_map_j)
+                model = PySRRegressor(
+                    niterations=30,
+                    binary_operators=["+", "-", "*", "/"],
+                    unary_operators=["sin", "cos", "exp", "square", "cube"],
+                    maxsize=25,
+                    maxdepth=4,
+                    model_selection="best",
+                    random_state=seed + j,
+                    procs=1,
+                    progress=False,
+                    verbosity=0,
+                )
+                model.fit(X_tr, yj, variable_names=col_names)
+                sym_expr = str(model.sympy())
+                atoms_j, inter_j, coef_map_j = extract_native_terms_and_coefs(sym_expr, col_names)
+                discovered.append(atoms_j)
+                pred_tr[:, j] = model.predict(X_tr)
+                pred_in[:, j] = model.predict(X_in)
+                pred_ood[:, j] = model.predict(X_ood)
+                intercepts_out.append(inter_j)
+                coefs_out.append(coef_map_j)
+                ran_native = True
+            except Exception as exc:
+                print(f"[WARN] Native PySR fit failed on eq {j+1} ({exc}); falling back to pool.", file=sys.stderr)
+                engine_used = "fallback_pool"
         elif use_native_operon:
-            from pyoperon.sklearn import SymbolicRegressor
+            try:
+                from pyoperon.sklearn import SymbolicRegressor
 
-            reg = SymbolicRegressor(
-                allowed_symbols="add,sub,mul,div,sin,cos,exp,square,cube,constant,variable",
-                optimizer="lm",
-                max_length=25,
-                max_depth=4,
-                generations=60,
-                population_size=200,
-                model_selection_criterion="minimum_description_length",
-                n_threads=1,
-                random_state=seed + j,
-            )
-            reg.fit(X_tr, yj)
-            expr_str = reg.get_model_string(reg.model_, names=col_names)
-            atoms_j, inter_j, coef_map_j = extract_native_terms_and_coefs(expr_str, col_names)
-            discovered.append(atoms_j)
-            pred_tr[:, j] = reg.predict(X_tr)
-            pred_in[:, j] = reg.predict(X_in)
-            pred_ood[:, j] = reg.predict(X_ood)
-            intercepts_out.append(inter_j)
-            coefs_out.append(coef_map_j)
-        else:
+                reg = SymbolicRegressor(
+                    allowed_symbols="add,sub,mul,div,sin,cos,exp,square,cube,constant,variable",
+                    optimizer="lm",
+                    max_length=25,
+                    max_depth=4,
+                    generations=60,
+                    population_size=200,
+                    model_selection_criterion="minimum_description_length",
+                    n_threads=1,
+                    random_state=seed + j,
+                )
+                reg.fit(X_tr, yj)
+                expr_str = reg.get_model_string(reg.model_, names=col_names)
+                atoms_j, inter_j, coef_map_j = extract_native_terms_and_coefs(expr_str, col_names)
+                discovered.append(atoms_j)
+                pred_tr[:, j] = reg.predict(X_tr)
+                pred_in[:, j] = reg.predict(X_in)
+                pred_ood[:, j] = reg.predict(X_ood)
+                intercepts_out.append(inter_j)
+                coefs_out.append(coef_map_j)
+                ran_native = True
+            except Exception as exc:
+                print(f"[WARN] Native pyoperon fit failed on eq {j+1} ({exc}); falling back to pool.", file=sys.stderr)
+                engine_used = "fallback_pool"
+        if not ran_native:
             rule = "pysr_best" if method_id == "SR_PySR" else "operon_mdl"
             supp, coefs, inter = fit_evolutionary_pareto_sr(
                 Phi_tr, yj, names, complexities, selection_rule=rule, seed=seed + j * 17
@@ -397,6 +426,7 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
 
     return {
         "method_id": method_id,
+        "engine": engine_used,
         "discovered": discovered,
         "intercepts": intercepts_out,
         "coefs": coefs_out,
