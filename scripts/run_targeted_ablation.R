@@ -61,10 +61,10 @@ for (sys_id in systems) {
   for (reg in noise_regimes) {
     for (sd in seeds) {
       task_data <- tryCatch(
-        simulate_dynamical_system(
+        generate_synthetic_task_data(
           system_id = sys_id,
-          n_train = 250L,
-          noise_level = 0.05,
+          N_train = 250L,
+          noise_eta = 0.05,
           noise_regime = reg,
           seed = sd
         ),
@@ -110,7 +110,7 @@ if (file.exists(auth_csv)) {
   raw_df <- fread(auth_csv)
   times <- as.numeric(raw_df$time)
   X_clean <- as.matrix(raw_df[, .(x1, x2)])
-  Y_sg <- estimate_derivatives_sgolay(X_clean, times)
+  Y_sg <- estimate_derivatives_sgolay_spline(X_clean, times)
   n_tot <- nrow(X_clean)
   n_tr <- floor(0.7 * n_tot)
   tr_idx <- seq_len(n_tr)
