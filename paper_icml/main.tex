@@ -392,6 +392,35 @@ Table~\ref{tab:real_overall} and Figures~\ref{fig:stability_pareto}(B) and \ref{
   \item \textbf{Differentiation Method Effect}: The LMM covariate shows \texttt{tvregdiff} yields slightly lower trajectory rollout $R^2_{\text{traj}}$ than Savitzky--Golay spline differentiation ($\hat{\beta}=-0.033, t=-6.00, p<10^{-4}$), though we caution that differentiation smoothers were evaluated across the full series once per dataset prior to fold splitting, motivating end-to-end held-out window differentiation in future runs.
 \end{enumerate}
 
+\subsection{Targeted Follow-Up Ablations: State Noise, Standardized Bagging, and Authentic 1900--1920 Pelts}
+\label{sec:targeted_ablation}
+
+To address directly (i) errors-in-variables attenuation under noisy state observations (\texttt{state\_noise}), (ii) the unstandardized-vs-standardized bagging threshold caveat in \texttt{Bag\_STLSQ\_Poly}, and (iii) truly empirical non-simulated measurements, we executed a 138-task targeted ablation (\texttt{scripts/run\_targeted\_ablation.R}) across Lorenz-63, R\"ossler--Lorenz Hybrid, and Goodwin MM ($N=250$, $\eta=0.05$, 3 seeds $\times$ 2 noise regimes = 108 synthetic runs) plus 5 rolling folds on the authentic 1900--1920 Hudson Bay Company Lynx--Hare pelt records \citep{odum1953fundamentals} ($N=81$ cubic-spline points, 30 runs). Note that our runtime engine telemetry logged that \texttt{SR\_PySR} and \texttt{SR\_Operon} still executed via \texttt{fallback\_pool} on the cluster due to native Julia/\texttt{pyoperon} environment bindings.
+
+\begin{table}[t]
+\centering
+\caption{Targeted ablation (138 runs): Errors-in-variables (\texttt{state\_noise}) vs.\ \texttt{derivative\_snr} ($N=250, \eta=0.05$) and authentic 1900--1920 Hudson Bay Lynx--Hare pelts (5 folds). \texttt{Bag\_STLSQ\_Poly}$^\dagger$ uses the fixed CV-selected standardized threshold.}
+\label{tab:ablation_targeted}
+\scriptsize
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{l|ccc|ccc|ccc}
+\toprule
+& \multicolumn{3}{c|}{\textbf{Deriv.\ SNR (9/method)}} & \multicolumn{3}{c|}{\textbf{State Noise (9/method)}} & \multicolumn{3}{c}{\textbf{Authentic Pelts (5 folds)}} \\
+Method & F1 $\uparrow$ & FDR $\downarrow$ & $R^2_{\text{OOD}}$ & F1 $\uparrow$ & FDR $\downarrow$ & $R^2_{\text{OOD}}$ & F1 $\uparrow$ & FDR $\downarrow$ & OC $\downarrow$ \\
+\midrule
+\textbf{\texttt{BGNLM\_Full\_Tuned}} & \textbf{0.907} & \textbf{0.093} & \textbf{0.975} & \textbf{0.590} & \textbf{0.457} & \textbf{0.759} & \textbf{0.569} & \textbf{0.555} & \textbf{14.0} \\
+\texttt{SINDy\_STLSQ\_Oracle} & 0.532 & 0.606 & 0.828 & 0.284 & 0.803 & 0.435 & 0.361 & 0.770 & 32.8 \\
+\texttt{SINDy\_STLSQ\_Poly} & 0.484 & 0.619 & 0.883 & 0.268 & 0.812 & 0.430 & 0.361 & 0.770 & 32.8 \\
+\texttt{SR\_Pool\_MDL} & 0.397 & 0.658 & 0.740 & 0.284 & 0.744 & 0.636 & 0.276 & 0.786 & 22.6 \\
+\texttt{SR\_Pool\_Pareto} & 0.412 & 0.636 & 0.735 & 0.237 & 0.777 & 0.649 & 0.252 & 0.824 & 29.4 \\
+\texttt{Bag\_STLSQ\_Poly}$^\dagger$ & 0.184 & 0.896 & 0.485 & 0.178 & 0.901 & 0.310 & 0.364 & 0.778 & 42.0 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+As shown in Table~\ref{tab:ablation_targeted}, three conclusions emerge: (1) Under noisy-state errors-in-variables (\texttt{state\_noise}), \texttt{BGNLM\_Full\_Tuned} achieves $\text{F1}=0.590$ ($\text{FDR}=0.457$, $R^2_{\text{OOD}}=0.759$; $0.655$ on Lorenz-63, $0.713$ on Hybrid, $0.402$ on Goodwin), more than doubling every comparator (\texttt{SINDy\_STLSQ\_Oracle} $0.284$, \texttt{SR\_Pool\_MDL} $0.284$, \texttt{SINDy\_STLSQ\_Poly} $0.268$). (2) Fixing \texttt{Bag\_STLSQ\_Poly} to inherit CV-selected standardized $\hat{\lambda}^*$ directly (\texttt{SINDY\_LEGACY\_UNSTD\_THRESH=0}) yields $\text{TPR}=0.841$ but inflates FDR ($0.896$--$0.901$), confirming that bootstrap bagging STLSQ without complexity penalties still over-selects noisy features when $\hat{\lambda}^*$ is small. (3) On the authentic 1900--1920 Lynx--Hare historical record, \texttt{BGNLM\_Full\_Tuned} ranks \#1 in structure recovery ($\text{F1}=0.569$, up to $0.800$ on Fold~4), FDR ($0.555$), OOD derivative fit ($R^2_{\text{OOD}}=0.544$), and parsimony ($\text{OC}=14.0$, less than half of \texttt{SINDy\_STLSQ}'s $32.8$ and a third of \texttt{Bag\_STLSQ\_Poly}'s $42.0$).
+
 % ==============================================================================
 \section{Variance Decomposition, Discussion \& Conclusion}
 % ==============================================================================
@@ -443,7 +472,7 @@ Quasi-Emp.\ $R^2_{\text{traj}}$ & \texttt{Residual} & 0.0065 & 0.0807 & 0.032 \\
 
 \textbf{Runtime vs.\ Accuracy}: Deterministic SINDy variants execute in $1.9$--$2.8\,\text{s}$ and our Python static-pool SR proxies run in $4.4$--$5.9\,\text{s}$, whereas 6-chain GMJMCMC in \texttt{BGNLM\_Full\_Tuned} averages $235.4\,\text{s}$ (synthetic) and $137.3\,\text{s}$ (quasi-empirical) per multi-equation system ($40\times$--$120\times$ higher compute budget)---buying calibrated Bayesian PIPs, $92.6\%$ empirical coverage, lower FDR, and basis-free recovery. Because equations $j=1,\dots,m$ are conditionally independent given $\boldsymbol{X}$, equation-level parallelization reduces wall-clock latency proportionally.
 
-\textbf{Limitations \& Future Ablations}: (1) Like all derivative-regression methods, BGNLM struggles when a state trajectory rapidly collapses to an equilibrium (\texttt{sys01}) or approaches equilibrium before the test horizon (\emph{Yeast}); weak-form integral formulations \citep{messenger2021weak} could mitigate this. (2) At very large $N=2500$ under fixed MCMC budget ($N_{\text{MCMC}}=500, P=12$), $O(N)$ likelihood sharpening can trap chains in multi-term Taylor/rational surrogates, tripling FDR; adaptive MCMC schedules or non-local priors merit investigation. (3) Disabling projections ($p_{\text{proj}}=0, D \le 2$) trades non-unit internal scale flexibility ($\sin(\omega x_1)$) for algebraic identifiability. (4) Our 109k/2.6k sweeps tested derivative-SNR noise, static-pool SR proxies, and literature-simulated noisy-state series; we provide fixed native \texttt{PySR}/\texttt{PyOperon} bridges, standardized \texttt{UQ\_SINDy}, authentic 1900--1920 Lynx--Hare data, and a \texttt{state\_noise} ablation runner in \texttt{scripts/run\_targeted\_ablation.R}.
+\textbf{Limitations \& Scope Notes}: (1) Like all derivative-regression methods, BGNLM struggles when a state trajectory rapidly collapses to an equilibrium (\texttt{sys01}) or approaches equilibrium before the test horizon (\emph{Yeast}); weak-form integral formulations \citep{messenger2021weak} could mitigate this. (2) At very large $N=2500$ under fixed MCMC budget ($N_{\text{MCMC}}=500, P=12$), $O(N)$ likelihood sharpening can trap chains in multi-term Taylor/rational surrogates, tripling FDR; adaptive MCMC schedules or non-local priors merit investigation. (3) Disabling projections ($p_{\text{proj}}=0, D \le 2$) trades non-unit internal scale flexibility ($\sin(\omega x_1)$) for algebraic identifiability. (4) While our targeted ablation (\S\ref{sec:targeted_ablation}) verified \texttt{state\_noise} robustness, standardized \texttt{Bag\_STLSQ}, and authentic 1900--1920 Lynx--Hare pelts, native Julia/C++ \texttt{PySR}/\texttt{PyOperon} cluster execution remained gated by environment availability (\texttt{fallback\_pool} telemetry), leaving a compute-matched head-to-head with native Julia/C++ GP trees for future work.
 
 \subsection{Broader Impact}
 

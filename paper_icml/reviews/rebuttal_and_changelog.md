@@ -39,3 +39,12 @@ This document records every critique raised by the three independent submodel re
    - **Added `Bag_STLSQ_Oracle` row to Table 3**, disclosed $[0,1]$ $R^2$ clipping, intercept exclusion, and conditional-on-OK vs. zero-imputed `BGLM_Overcomplete` averages.
    - **Table 6 (`tab:systems_spec`)**: Fixed Thomas indexing to $\sin(x_{(i \bmod 3)+1})$, added Goodwin $p=2$ and $K_m+|x_3|$ notes, and Lorenz-96 cyclic boundary indexing.
    - **Fixed `R/05_symbolic_canonicalize.R`**: Evaluated parenthesized/unary-minus constant exponents so `x1^(-1)` and `x1^(0.5)` no longer emit malformed `^(x1)` tokens.
+
+---
+
+## 4. Targeted Server Ablation Execution (`results/ablation_native/`, 138 Runs Completed on `nam-shub-01`)
+
+Ran `scripts/run_targeted_ablation.sh 6` on `nam-shub-01` across 108 synthetic runs (`sys02`, `sys08`, `sys11`; $N=250, \eta=0.05$, 3 seeds $\times$ 2 noise regimes: `derivative_snr` and `state_noise`) plus 30 runs across 5 folds of the authentic 1900–1920 Hudson Bay Company Lynx–Hare pelt record (`data/real_world/lynx_hare_authentic_1900_1920.csv`), with results integrated into `Section 5.3` (`Table~\ref{tab:ablation_targeted}`) of `paper_icml/main.tex`:
+- **Errors-in-Variables (`state_noise`)**: `BGNLM_Full_Tuned` achieved $\text{F1}=0.590, \text{FDR}=0.457, R^2_{\text{OOD}}=0.759$, more than doubling `SINDy_STLSQ_Oracle` ($0.284$), `SR_Pool_MDL` ($0.284$), `SINDy_STLSQ_Poly` ($0.268$), and standardized `Bag_STLSQ_Poly` ($0.178$).
+- **Authentic 1900–1920 Pelts**: `BGNLM_Full_Tuned` ranked #1 ($\text{F1}=0.569, \text{FDR}=0.555, \text{OC}=14.0, R^2_{\text{OOD}}=0.544$), over $2\times$ sparser than `SINDy_STLSQ` ($\text{F1}=0.361, \text{OC}=32.8$) and `Bag_STLSQ_Poly` ($\text{F1}=0.364, \text{OC}=42.0$).
+- **Engine Telemetry**: Logged cleanly that `SR_PySR` and `SR_Operon` executed `fallback_pool` on `nam-shub-01` due to `.venv`/Julia package availability, and disclosed this transparently in Section 5.3 and Section 6.2.
