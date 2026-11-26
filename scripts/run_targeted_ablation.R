@@ -139,6 +139,7 @@ j1b_seeds <- if (smoke_mode) 101L else c(101L, 202L)
     message(sprintf("[JOB 1] %s N=%d seed=%d | Base F1=%.3f | Scaled F1=%.3f", sys_id, N_tr, sd, ev_base$F1, ev_sc$F1))
     fwrite(rbindlist(job1_rows, fill = TRUE), "results/ablation_native/job1_largeN_scaling.csv")
   }
+}
 
 dt_job1 <- rbindlist(job1_rows, fill = TRUE)
 fwrite(dt_job1, "results/ablation_native/job1_largeN_scaling.csv")
@@ -222,6 +223,7 @@ if (has_job("2")) {
         )
         message(sprintf("[JOB 2] %s | %s | seed=%d | %s (%s) -> F1=%.3f FDR=%.3f R2_traj=%.3f (%.1fs)",
                         sys_id, reg, sd, mid, ev$Engine, ev$F1, ifelse(is.na(ev$FDR), -1, ev$FDR), ev$R2_traj, el))
+        }
       }
     }
   }

@@ -1078,8 +1078,7 @@ get_tuned_bgnlm_config <- function(N_obs = 500L, p_cov = 3L) {
       P_generations = 15L,
       N_mcmc = 500L,
       runs = 6L,
-      transforms_tier = "transforms_extended",
-      energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     )
   }
 
@@ -1117,8 +1116,7 @@ get_tuned_bgnlm_config <- function(N_obs = 500L, p_cov = 3L) {
     P_generations = as.integer(cfg$P_generations),
     N_mcmc = as.integer(cfg$N_mcmc),
     runs = as.integer(cfg$runs),
-    transforms_tier = as.character(cfg$transforms_tier),
-    energy_prune_tol = if (!is.null(cfg$energy_prune_tol)) as.numeric(cfg$energy_prune_tol) else 0.025
+    transforms_tier = as.character(cfg$transforms_tier)
   )
 }
 
@@ -1156,8 +1154,7 @@ run_fbms_method <- function(
   task_data,
   cores = 2L,
   tuning_override = NULL,
-  fast_mode = FALSE,
-  prune_tol_override = NULL
+  fast_mode = FALSE
 ) {
   method_id <- match.arg(method_id)
   t_dicts <- register_fbms_transforms()
@@ -1219,7 +1216,6 @@ run_fbms_method <- function(
   }
 
   discovered_mpm <- vector("list", m)
-  discovered_mpm_raw <- vector("list", m)
   discovered_map <- vector("list", m)
   pip_list <- vector("list", m)
   eq_models <- vector("list", m)
@@ -1262,7 +1258,6 @@ run_fbms_method <- function(
         transforms = t_dicts$transforms_iwsm,
         verbose = FALSE
       ))
-      prune_tol <- 1e-4 # Untuned IWSM did not prune weak features
     } else if (method_id %in% c("BGNLM_Full_Tuned", "BGNLM_Hybrid_Poly")) {
       transforms_vec <- if (cfg$transforms_tier == "transforms_core") t_dicts$transforms_core else t_dicts$transforms_extended
       params <- FBMS::gen.params.gmjmcmc(ncol(X_tr_df))
@@ -1292,7 +1287,6 @@ run_fbms_method <- function(
         transforms = transforms_vec,
         verbose = FALSE
       ))
-      prune_tol <- cfg$energy_prune_tol
     } else {
       # Predefined-Basis BGLM via mjmcmc.parallel
       N_mcmc_bglm <- if (fast_mode) 400L else max(800L, cfg$N_mcmc)
@@ -1311,7 +1305,6 @@ run_fbms_method <- function(
         N = N_mcmc_bglm,
         verbose = FALSE
       ))
-      prune_tol <- cfg$energy_prune_tol
     }
 
     # Extract full PIP table with original column labels
@@ -1333,39 +1326,9 @@ run_fbms_method <- function(
       discovered_map[[j]] <- character(0)
     }
 
-    # Extract MPM features (PIP > 0.5)
+    # Extract Median Probability Model (MPM) features directly (PIP > 0.5)
     mpm_idx <- which(pips_all > 0.5)
-    mpm_raw_feats <- feat_strs_all[mpm_idx]
-    discovered_mpm_raw[[j]] <- extract_canonical_atoms(mpm_raw_feats)
-    if (!is.null(prune_tol_override)) {
-      prune_tol <- as.numeric(prune_tol_override)
-    }
-
-    # Evaluate selected MPM features on train/in/ood and refit posterior mode / OLS with energy pruning
-    if (length(mpm_raw_feats) > 0L) {
-      X_tr_named <- as.data.frame(X_tr); colnames(X_tr_named) <- orig_labels
-      Phi_mpm_tr <- sapply(mpm_raw_feats, function(fs) eval_fbms_feature_string(fs, X_tr_named))
-      if (!is.matrix(Phi_mpm_tr)) Phi_mpm_tr <- matrix(Phi_mpm_tr, nrow = nrow(X_tr_named))
-      colnames(Phi_mpm_tr) <- mpm_raw_feats
-
-      # Energy pruning of negligible MPM terms (skipped when prune_tol <= 0)
-      if (prune_tol > 0.0) {
-        fit_init <- lm.fit(x = cbind(1.0, Phi_mpm_tr), y = Y_tr[, j])
-        coefs_init <- fit_init$coefficients[-1]
-        coefs_init[is.na(coefs_init)] <- 0.0
-        y_norm <- max(sqrt(sum(Y_tr[, j]^2)), 1e-12)
-        rel_energy <- sapply(seq_along(mpm_raw_feats), function(k) {
-          abs(coefs_init[k]) * sqrt(sum(Phi_mpm_tr[, k]^2)) / y_norm
-        })
-        keep_k <- which(rel_energy >= prune_tol)
-        mpm_kept_feats <- mpm_raw_feats[keep_k]
-      } else {
-        mpm_kept_feats <- mpm_raw_feats
-      }
-    } else {
-      mpm_kept_feats <- character(0)
-    }
-
+    mpm_kept_feats <- feat_strs_all[mpm_idx]
     discovered_mpm[[j]] <- extract_canonical_atoms(mpm_kept_feats)
 
     # Fit final linear predictor on kept MPM features + compute BMA predictive intervals
@@ -1481,7 +1444,6 @@ run_fbms_method <- function(
   list(
     method_id = method_id,
     discovered = discovered_mpm,
-    discovered_raw = discovered_mpm_raw,
     discovered_map = discovered_map,
     pip_list = pip_list,
     pred_train = pred_train,
@@ -1506,12 +1468,14 @@ run_fbms_method <- function(
 # ==============================================================================
 
 if (!exists("build_poly_library", mode = "function")) {
-  if (file.exists("R/02_basis_builders.R")) source("R/02_basis_builders.R")
-  else if (file.exists("../../R/02_basis_builders.R")) source("../../R/02_basis_builders.R")
+  if (file.exists("R/02_basis_builders.R")) {
+    source("R/02_basis_builders.R")
+  } else if (file.exists("../../R/02_basis_builders.R")) source("../../R/02_basis_builders.R")
 }
 if (!exists("extract_canonical_atoms", mode = "function")) {
-  if (file.exists("R/05_symbolic_canonicalize.R")) source("R/05_symbolic_canonicalize.R")
-  else if (file.exists("../../R/05_symbolic_canonicalize.R")) source("../../R/05_symbolic_canonicalize.R")
+  if (file.exists("R/05_symbolic_canonicalize.R")) {
+    source("R/05_symbolic_canonicalize.R")
+  } else if (file.exists("../../R/05_symbolic_canonicalize.R")) source("../../R/05_symbolic_canonicalize.R")
 }
 
 #' Fit Sequential Thresholded Least Squares (STLSQ) on standardized design matrix Phi
@@ -1616,13 +1580,15 @@ build_sindy_pi_rational_library <- function(X) {
   }
 
   for (i in seq_len(m)) {
-    xi <- X[, i]; ni <- col_names[i]
+    xi <- X[, i]
+    ni <- col_names[i]
     add_rat(1.0 / (1.0 + abs(xi)), paste0("1/(1+", ni, ")"))
     add_rat(xi / (1.0 + abs(xi)), paste0(ni, "/(1+", ni, ")"))
     add_rat(1.0 / (1.0 + xi^2), paste0("1/(1+", ni, "^2)"))
     add_rat((xi^2) / (1.0 + xi^2), paste0(ni, "^2/(1+", ni, "^2)"))
     for (j in seq_len(m)) {
-      xj <- X[, j]; nj <- col_names[j]
+      xj <- X[, j]
+      nj <- col_names[j]
       if (i != j) {
         add_rat((xi * xj) / (1.0 + abs(xi)), paste0(ni, "*", nj, "/(1+", ni, ")"))
         add_rat((xi * (xj^2)) / (1.0 + xj^2), paste0(ni, "*", nj, "^2/(1+", nj, "^2)"))
@@ -1645,8 +1611,7 @@ run_sindy_baseline <- function(
     "SINDy_PI_Rational"
   ),
   task_data,
-  n_boot = 80L,
-  prune_tol = 0.0
+  n_boot = 80L
 ) {
   method_id <- match.arg(method_id)
   X_tr_raw <- as.matrix(task_data$X_train)
@@ -1689,25 +1654,6 @@ run_sindy_baseline <- function(
 
     if (method_id %in% c("SINDy_STLSQ_Oracle", "SINDy_STLSQ_Poly", "SINDy_PI_Rational")) {
       fit_j <- cv_stlsq_fit(Phi_tr, yj)
-      active_idx <- fit_j$active
-      if (prune_tol > 0.0 && length(active_idx) > 0L) {
-        y_norm <- max(sqrt(sum(yj^2)), 1e-12)
-        rel_en <- vapply(active_idx, function(k_idx) {
-          abs(fit_j$coefs[k_idx]) * sqrt(sum(Phi_tr[, k_idx]^2)) / y_norm
-        }, numeric(1))
-        active_idx <- active_idx[rel_en >= prune_tol]
-        if (length(active_idx) > 0L) {
-          ols_p <- lm.fit(x = cbind(1.0, Phi_tr[, active_idx, drop = FALSE]), y = yj)
-          b_p <- ols_p$coefficients; b_p[is.na(b_p)] <- 0.0
-          fit_j$intercept <- b_p[1]
-          fit_j$coefs <- setNames(rep(0.0, p), cand_names)
-          fit_j$coefs[active_idx] <- b_p[-1]
-        } else {
-          fit_j$intercept <- mean(yj)
-          fit_j$coefs <- setNames(rep(0.0, p), cand_names)
-        }
-        fit_j$active <- active_idx
-      }
       active_names <- cand_names[fit_j$active]
       discovered[[j]] <- extract_canonical_atoms(active_names)
       pip_vec <- as.numeric(cand_names %in% active_names)
@@ -1719,10 +1665,11 @@ run_sindy_baseline <- function(
       pred_ood[, j] <- fit_j$intercept + as.numeric(Phi_ood %*% fit_j$coefs)
 
       # Point-estimate methods have no calibrated Bayesian credible intervals (NA or residual plug-in)
-      lower_in[, j] <- NA_real_; upper_in[, j] <- NA_real_
-      lower_ood[, j] <- NA_real_; upper_ood[, j] <- NA_real_
+      lower_in[, j] <- NA_real_
+      upper_in[, j] <- NA_real_
+      lower_ood[, j] <- NA_real_
+      upper_ood[, j] <- NA_real_
       eq_models[[j]] <- list(intercept = fit_j$intercept, coefs = fit_j$coefs)
-
     } else {
       # UQ_SINDy (Ensemble / Spike-and-Slab Bagging SINDy: Fasel et al. 2022 / Hirsh et al. 2022)
       fit_base <- cv_stlsq_fit(Phi_tr, yj)
@@ -1760,9 +1707,11 @@ run_sindy_baseline <- function(
       if (length(mpm_idx) > 0L) {
         X_act <- cbind(1.0, Phi_tr[, mpm_idx, drop = FALSE])
         ols <- lm.fit(x = X_act, y = yj)
-        b_ols <- ols$coefficients; b_ols[is.na(b_ols)] <- 0.0
+        b_ols <- ols$coefficients
+        b_ols[is.na(b_ols)] <- 0.0
         inter_mpm <- b_ols[1]
-        coefs_mpm <- rep(0.0, p); names(coefs_mpm) <- cand_names
+        coefs_mpm <- rep(0.0, p)
+        names(coefs_mpm) <- cand_names
         coefs_mpm[mpm_idx] <- b_ols[-1]
         sigma_res <- sqrt(mean(ols$residuals^2))
       } else {
@@ -1818,10 +1767,9 @@ run_sindy_baseline <- function(
 
 #' True Bayesian Spike-and-Slab / BIC Model Averaging SINDy Baseline via BAS::bas.lm
 run_uq_sindy_bayes <- function(
-  task_data,
-  dict_type = c("poly", "oracle"),
-  mcmc_iters = 5000L
-) {
+    task_data,
+    dict_type = c("poly", "oracle"),
+    mcmc_iters = 5000L) {
   dict_type <- match.arg(dict_type)
   method_id <- if (dict_type == "oracle") "UQ_SINDy_Bayes_Oracle" else "UQ_SINDy_Bayes_Poly"
 
@@ -1847,9 +1795,12 @@ run_uq_sindy_bayes <- function(
   p <- ncol(Phi_tr)
   safe_names <- paste0("b", seq_len(p))
 
-  df_tr <- as.data.frame(Phi_tr); colnames(df_tr) <- safe_names
-  df_in <- as.data.frame(Phi_in); colnames(df_in) <- safe_names
-  df_ood <- as.data.frame(Phi_ood); colnames(df_ood) <- safe_names
+  df_tr <- as.data.frame(Phi_tr)
+  colnames(df_tr) <- safe_names
+  df_in <- as.data.frame(Phi_in)
+  colnames(df_in) <- safe_names
+  df_ood <- as.data.frame(Phi_ood)
+  colnames(df_ood) <- safe_names
 
   discovered <- vector("list", m)
   pip_list <- vector("list", m)
@@ -1911,7 +1862,8 @@ run_uq_sindy_bayes <- function(
     # OLS refit on MPM support for clean autonomous rollout RHS
     if (length(mpm_idx) > 0L) {
       ols_j <- lm.fit(x = cbind(1.0, Phi_tr[, mpm_idx, drop = FALSE]), y = yj)
-      b_j <- ols_j$coefficients; b_j[is.na(b_j)] <- 0.0
+      b_j <- ols_j$coefficients
+      b_j[is.na(b_j)] <- 0.0
       inter_j <- b_j[1]
       coefs_j <- setNames(rep(0.0, p), cand_names)
       coefs_j[mpm_idx] <- b_j[-1]
@@ -1950,11 +1902,10 @@ run_uq_sindy_bayes <- function(
 #' Weak-Form Integral SINDy Baseline (WSINDy; Messenger & Bortz 2021)
 #' Eliminates numerical state differentiation via integration by parts against compact C^p test functions.
 run_wsindy_baseline <- function(
-  task_data,
-  dict_type = c("poly", "oracle"),
-  p_smooth = 4L,
-  n_test_funcs = 60L
-) {
+    task_data,
+    dict_type = c("poly", "oracle"),
+    p_smooth = 4L,
+    n_test_funcs = 60L) {
   dict_type <- match.arg(dict_type)
   method_id <- if (dict_type == "oracle") "WSINDy_Oracle" else "WSINDy_Poly"
 
@@ -2082,7 +2033,6 @@ run_wsindy_baseline <- function(
     predict_rhs_fn = predict_rhs_fn
   )
 }
-
 
 
 === FILE: R/04b_sr_baselines.R ===
@@ -3105,7 +3055,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-1.0)",
       p_inter = 0.55, p_mod = 0.35, p_proj = 0.00, p_new = 0.10,
       pop_max = 20L, max_depth_D = 2L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_extended", energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     ),
     list(
       config_id = "C02_HyperGN_rN1_Algebraic",
@@ -3116,7 +3066,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-1.0)",
       p_inter = 0.55, p_mod = 0.35, p_proj = 0.00, p_new = 0.10,
       pop_max = 20L, max_depth_D = 2L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_extended", energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     ),
     list(
       config_id = "C03_Robust_tCCH_rN1_Algebraic",
@@ -3127,7 +3077,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-1.0)",
       p_inter = 0.55, p_mod = 0.35, p_proj = 0.00, p_new = 0.10,
       pop_max = 20L, max_depth_D = 2L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_extended", energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     ),
     list(
       config_id = "C04_JeffreysBIC_UnknownVar_rN1",
@@ -3138,7 +3088,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-1.0)",
       p_inter = 0.55, p_mod = 0.35, p_proj = 0.00, p_new = 0.10,
       pop_max = 20L, max_depth_D = 2L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_extended", energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     ),
     list(
       config_id = "C05_GPrior_rN15_StrongPenalty",
@@ -3149,7 +3099,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-1.5)",
       p_inter = 0.55, p_mod = 0.35, p_proj = 0.00, p_new = 0.10,
       pop_max = 25L, max_depth_D = 2L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_extended", energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     ),
     list(
       config_id = "C06_GPrior_rExp4_LowProj",
@@ -3160,7 +3110,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "exp(-4)",
       p_inter = 0.50, p_mod = 0.35, p_proj = 0.05, p_new = 0.10,
       pop_max = 20L, max_depth_D = 3L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_extended", energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     ),
     list(
       config_id = "C07_GPrior_HighProj_Abalation",
@@ -3171,7 +3121,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-0.5)",
       p_inter = 0.40, p_mod = 0.30, p_proj = 0.20, p_new = 0.10,
       pop_max = 15L, max_depth_D = 3L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_core", energy_prune_tol = 0.025
+      transforms_tier = "transforms_core"
     ),
     list(
       config_id = "C08_IWSM_Baseline_FixedVar1",
@@ -3182,7 +3132,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-1.0)",
       p_inter = 0.40, p_mod = 0.40, p_proj = 0.10, p_new = 0.10,
       pop_max = 15L, max_depth_D = 5L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_iwsm", energy_prune_tol = 1e-4
+      transforms_tier = "transforms_iwsm"
     )
   )
 }
@@ -4323,7 +4273,6 @@ P_generations: 12
 N_mcmc: 500
 runs: 6
 transforms_tier: transforms_extended
-energy_prune_tol: 0.025
 
 
 === FILE: config/real_datasets_config.yaml ===
@@ -5004,19 +4953,19 @@ Under a fixed finite chain budget $(P, N_{\text{MCMC}})$, a multi-term Taylor or
 \label{alg:bgnlm_sindy}
 \begin{small}
 \begin{algorithmic}[1]
-\Require States $\boldsymbol{X}$, derivatives $\boldsymbol{Y}$, transforms $\mathcal{T}_{\text{ext}}$, $r=N^{-1}$, $\tau_{\text{energy}}=0.025$.
+\Require States $\boldsymbol{X}$, derivatives $\boldsymbol{Y}$, transforms $\mathcal{T}_{\text{ext}}$, $r=N^{-1}$.
 \State Filter zero-variance columns ($s_l \le 10^{-12}$) from $\boldsymbol{X}$.
 \For{each equation $j = 1, \dots, m$}
   \State Run $R=6$ parallel GMJMCMC chains ($P=15, N_{\text{MCMC}}=500$, $p_{\text{gen}}=(0.55, 0.35, 0.00, 0.10)$, $D \le 2$, $\text{pop.max}=20$, unknown-$\sigma_j^2$ Jeffreys-BIC).
-  \State Weight populations by marginal likelihood to obtain unpruned $\widehat{\text{PIP}}_{jk}$ and BMA predictive quantiles.
-  \State Select MPM $\mathcal{S}_j^{\text{MPM}} = \{g_k : \widehat{\text{PIP}}_{jk} > 0.5\}$, prune terms with $\|\hat{\beta}_{jk} g_k(\boldsymbol{X})\|_2 / \|\boldsymbol{y}_j\|_2 < \tau_{\text{energy}}$, and refit final OLS mean.
+  \State Weight populations by marginal likelihood to obtain $\widehat{\text{PIP}}_{jk}$ and BMA predictive quantiles.
+  \State Select the Median Probability Model $\hat{\mathcal{S}}_j^{\text{MPM}} = \{g_k : \widehat{\text{PIP}}_{jk} > 0.5\}$ and refit final OLS mean.
 \EndFor
-\State \Return Discovered sets $\{\hat{\mathcal{S}}_j\}$, unpruned PIPs, and Student-$t$ hybrid intervals.
+\State \Return Discovered sets $\{\hat{\mathcal{S}}_j^{\text{MPM}}\}$, $\widehat{\text{PIP}}_{jk}$, and Student-$t$ hybrid intervals.
 \end{algorithmic}
 \end{small}
 \end{algorithm}
 
-Following MPM selection ($\widehat{\text{PIP}}_{jk} > 0.5$) \citep{barbieri2004optimal}, post-MPM $L_2$-energy pruning discards atoms contributing relative norm below $\tau_{\text{energy}}=0.025$ before refitting OLS (we ablate $\tau_{\text{energy}}=0$ vs.\ $0.025$ in Section~\ref{sec:targeted_ablation}; PIP calibration always evaluates unpruned PIPs). Hybrid 95\% predictive intervals combine unpruned BMA quantile half-widths $h_{\text{BMA}}(\boldsymbol{x}_*)$ and post-selection Student-$t$ dispersion $t_{0.975, df}\hat{s}_*$ in quadrature (Algorithm~\ref{alg:bgnlm_sindy}). Calibrating 8 configurations on a 6-task slice (\texttt{sys02}, \texttt{sys04}, \texttt{sys08} at $N=250$, $\sigma \in \{0.01,0.25\}$, seed $101$; Table~\ref{tab:bgnlm_tuning} in Appendix~\ref{app:systems}) locked configuration \texttt{C04} (Jeffreys-BIC, unknown $\sigma_j^2$, $r=N^{-1}$, $p_{\text{proj}}=0$), lifting calibration F1 from $0.684$ to $0.976$ and cutting Brier error 20-fold ($0.227 \to 0.011$); Section~\ref{sec:exp1_results} verifies zero tuning leakage on all 9 unseen systems.
+Following Median Probability Model (MPM) selection ($\widehat{\text{PIP}}_{jk} > 0.5$) \citep{barbieri2004optimal}, we refit OLS on the selected active features $\hat{\mathcal{S}}_j^{\text{MPM}}$ without any post-hoc coefficient thresholding, preserving direct equivalence with Proposition~1. Hybrid 95\% predictive intervals combine BMA quantile half-widths $h_{\text{BMA}}(\boldsymbol{x}_*)$ and post-selection Student-$t$ dispersion $t_{0.975, df}\hat{s}_*$ in quadrature (Algorithm~\ref{alg:bgnlm_sindy}). Calibrating 8 configurations on a 6-task slice (\texttt{sys02}, \texttt{sys04}, \texttt{sys08} at $N=250$, $\sigma \in \{0.01,0.25\}$, seed $101$; Table~\ref{tab:bgnlm_tuning} in Appendix~\ref{app:systems}) locked configuration \texttt{C04} (Jeffreys-BIC, unknown $\sigma_j^2$, $r=N^{-1}$, $p_{\text{proj}}=0$), lifting calibration F1 from $0.684$ to $0.976$ and cutting Brier error 20-fold ($0.227 \to 0.011$); Section~\ref{sec:exp1_results} verifies zero tuning leakage on all 9 unseen systems.
 
 % ==============================================================================
 \section{Experimental Protocol \& Statistical Evaluation}
@@ -5162,13 +5111,13 @@ Across Experiment~1, F1 rises with $\log_{10} N$ ($\hat{\beta}=+0.054, t=28.54, 
 \subsection{Targeted Native Baselines and Expressivity Ablations}
 \label{sec:targeted_ablation}
 
-To evaluate pure Bayesian MPM ($\tau_{\text{energy}}=0$) against energy-pruned MPM ($\tau_{\text{energy}}=0.025$), symmetric STLSQ pruning, large-$N$ budget scaling (Remark~1), native Julia PySR and C++ PyOperon backends, corrected CV-$\hat{\lambda}^*$ \texttt{Bag\_STLSQ\_Poly}, BAS Bayesian dictionary averaging, Galerkin WSINDy, and non-unit internal scale expressivity, we executed targeted ablations in \texttt{scripts/run\_targeted\_ablation.R} (Table~\ref{tab:ablation_native}). Across 9 tasks (\texttt{sys02}, \texttt{sys08}, \texttt{sys11}), pure Bayesian MPM ($\tau_{\text{energy}}=0$) matches pruned MPM identically ($\text{F1}=0.923, \text{FDR}=0.095, \text{Exact}=0.667$, BMA $R^2_{\text{OOD}}=0.996$ vs.\ MPM-OLS $0.995$), proving complexity priors ($r=N^{-1}$) already govern sparsity, whereas symmetric pruning on \texttt{SINDy\_STLSQ} changes F1 negligibly ($0.668 \to 0.665$). Scaling search budgets ($P=16, N_{\text{MCMC}}=800$) with $r=N^{-1/2}$ on Goodwin MM lifts F1 from $0.742 \to 0.871$ at $N=500$, from $0.635 \to 0.767$ ($\text{Exact}: 0.0 \to 0.500$) at $N=1000$, and from $0.458 \to 0.485$ ($R^2_{\text{traj}}: 0.465 \to 0.628$) at $N=2500$, while holding $\text{F1}=1.000$ on Lorenz-63.
+To evaluate large-$N$ budget scaling (Remark~1), native Julia PySR and C++ PyOperon backends, corrected CV-$\hat{\lambda}^*$ \texttt{Bag\_STLSQ\_Poly}, BAS Bayesian dictionary averaging, Galerkin WSINDy, and non-unit internal scale expressivity under pure Bayesian MPM ($\widehat{\text{PIP}}_{jk} > 0.5$), we executed targeted ablations in \texttt{scripts/run\_targeted\_ablation.R} (Table~\ref{tab:ablation_native}). Across 9 BMA vs.\ MPM-OLS checks, posterior predictive accuracy matches tightly ($R^2_{\text{OOD}}=0.996$ vs.\ $0.995$). Scaling search budgets ($P=16, N_{\text{MCMC}}=800$) with $r=N^{-1/2}$ on Goodwin MM lifts F1 from $0.742 \to 0.871$ at $N=500$, from $0.635 \to 0.767$ ($\text{Exact}: 0.0 \to 0.500$) at $N=1000$, and from $0.458 \to 0.485$ ($R^2_{\text{traj}}: 0.465 \to 0.628$) at $N=2500$, while holding $\text{F1}=1.000$ on Lorenz-63.
 
-In fair head-to-head runs ($N=300, \eta=0.05$, Table~\ref{tab:ablation_native}), \texttt{BGNLM\_Full\_Tuned} and pure MPM rank first under both \texttt{derivative\_snr} ($\text{F1}=0.962, \text{SSPE}=0.461, \text{AUROC}=0.979$) and \texttt{state\_noise} ($\text{F1}=0.696, \text{FDR}=0.359$), ahead of oracle BAS (\texttt{UQ\_SINDy\_Bayes\_Oracle}, $\text{F1}=0.919$ / $0.502$), native Julia \texttt{SR\_PySR} ($0.784$ / $0.452$), fixed-$\hat{\lambda}^*$ \texttt{Bag\_STLSQ\_Poly} ($0.616$ / $0.324$), native \texttt{SR\_Operon} ($0.527$ / $0.439$), and degree-3 \texttt{SINDy\_PI\_Rat} ($0.445$ / $0.245$), while \texttt{WSINDy\_Oracle} achieves top noisy-state rollout ($R^2_{\text{traj}}=0.600$ vs.\ $0.341$) by integrating by parts. Removing invalid \texttt{sin\_deg} aliasing drops \texttt{BGNLM\_IWSM\_Untuned} to $0.0\%$ exact recovery on trigonometric systems ($R^2_{\text{traj}}=0.316$ vs.\ $0.832$ on Pendulum). Finally, on non-unit internal scale stress tests, tuned BGNLM ($p_{\text{proj}}=0$) discovers the double-angle factorization $2\sin(x_1)\cos(x_1)$ on $\ddot{\theta} = -0.25\dot{\theta}-5\sin(2\theta)$ ($R^2_{\text{traj}}=1.000$, surpassing native PySR at $0.964$ and PyOperon at $0.975$) and achieves $\text{F1}=0.846, R^2_{\text{traj}}=0.999$ on Michaelis--Menten $K_m=0.3$ kinetics, whereas enabling $p_{\text{proj}}=0.05$ lowers F1 to $0.600$.
+In fair head-to-head runs ($N=300, \eta=0.05$, Table~\ref{tab:ablation_native}), pure-MPM \texttt{BGNLM\_Full\_Tuned} ranks first under both \texttt{derivative\_snr} ($\text{F1}=0.962, \text{SSPE}=0.461, \text{AUROC}=0.979$) and \texttt{state\_noise} ($\text{F1}=0.696, \text{FDR}=0.359$), ahead of oracle BAS (\texttt{UQ\_SINDy\_Bayes\_Oracle}, $\text{F1}=0.919$ / $0.502$), native Julia \texttt{SR\_PySR} ($0.784$ / $0.452$), fixed-$\hat{\lambda}^*$ \texttt{Bag\_STLSQ\_Poly} ($0.616$ / $0.324$), native \texttt{SR\_Operon} ($0.527$ / $0.439$), and degree-3 \texttt{SINDy\_PI\_Rat} ($0.445$ / $0.245$), while \texttt{WSINDy\_Oracle} achieves top noisy-state rollout ($R^2_{\text{traj}}=0.600$ vs.\ $0.341$) by integrating by parts. Removing invalid \texttt{sin\_deg} aliasing drops \texttt{BGNLM\_IWSM\_Untuned} to $0.0\%$ exact recovery on trigonometric systems ($R^2_{\text{traj}}=0.316$ vs.\ $0.832$ on Pendulum). Finally, on non-unit internal scale stress tests, tuned BGNLM ($p_{\text{proj}}=0$) discovers the double-angle factorization $2\sin(x_1)\cos(x_1)$ on $\ddot{\theta} = -0.25\dot{\theta}-5\sin(2\theta)$ ($R^2_{\text{traj}}=1.000$, surpassing native PySR at $0.964$ and PyOperon at $0.975$) and achieves $\text{F1}=0.846, R^2_{\text{traj}}=0.999$ on Michaelis--Menten $K_m=0.3$ kinetics, whereas enabling $p_{\text{proj}}=0.05$ lowers F1 to $0.600$.
 
 \begin{table*}[t]
 \centering
-\caption{Targeted follow-up comparison ($N=300, \eta=0.05$, 4 systems $\times$ 2 regimes) covering pure MPM ($\tau=0$), fixed standardized \texttt{Bag\_STLSQ}, \texttt{BAS} Bayesian SINDy, weak-form \texttt{WSINDy}, degree-3 \texttt{SINDy\_PI\_Rat}, and native Julia/C++ \texttt{PySR}/\texttt{PyOperon}.}
+\caption{Targeted follow-up comparison ($N=300, \eta=0.05$, 4 systems $\times$ 2 regimes) covering pure-MPM \texttt{BGNLM}, fixed standardized \texttt{Bag\_STLSQ}, \texttt{BAS} Bayesian SINDy, weak-form \texttt{WSINDy}, degree-3 \texttt{SINDy\_PI\_Rat}, and native Julia/C++ \texttt{PySR}/\texttt{PyOperon}.}
 \label{tab:ablation_native}
 \scriptsize
 \resizebox{\textwidth}{!}{%
@@ -5178,8 +5127,7 @@ In fair head-to-head runs ($N=300, \eta=0.05$, Table~\ref{tab:ablation_native}),
 \cmidrule(lr){3-7}\cmidrule(lr){8-12}
 Method & Backend & F1 $\uparrow$ & FDR $\downarrow$ & SSPE $\downarrow$ & $R^2_{\text{OOD}}$ & $R^2_{\text{traj}}$ & F1 $\uparrow$ & FDR $\downarrow$ & SSPE $\downarrow$ & $R^2_{\text{OOD}}$ & $R^2_{\text{traj}}$ \\
 \midrule
-\textbf{\texttt{BGNLM\_Full\_Tuned} ($\tau{=}0.025$)} & Native R & \textbf{0.962} & \textbf{0.054} & \textbf{0.461} & \textbf{1.000} & 0.832 & \textbf{0.696} & 0.359 & \textbf{3.776} & \textbf{0.798} & 0.341 \\
-\texttt{BGNLM\_Full\_PureMPM} ($\tau{=}0$) & Native R & \textbf{0.962} & \textbf{0.054} & \textbf{0.461} & \textbf{1.000} & -- & \textbf{0.696} & 0.359 & \textbf{3.776} & \textbf{0.798} & -- \\
+\textbf{\texttt{BGNLM\_Full\_Tuned} (Pure MPM)} & Native R & \textbf{0.962} & \textbf{0.054} & \textbf{0.461} & \textbf{1.000} & 0.832 & \textbf{0.696} & 0.359 & \textbf{3.776} & \textbf{0.798} & 0.341 \\
 \texttt{UQ\_SINDy\_Bayes\_Oracle} & BAS R & 0.919 & 0.063 & 1.643 & 0.996 & 0.762 & 0.502 & 0.429 & 5.018 & 0.709 & 0.305 \\
 \texttt{SR\_PySR} & Native Julia & 0.784 & 0.231 & -- & 0.842 & 0.797 & 0.452 & 0.510 & -- & 0.519 & 0.318 \\
 \texttt{SINDy\_STLSQ\_Oracle} & Native R & 0.762 & 0.344 & 4.625 & 0.871 & 0.845 & 0.420 & 0.620 & 21.750 & 0.549 & 0.343 \\
@@ -7208,11 +7156,11 @@ sub_s[, Group_Name := factor(group_labels[SystemGroup], levels = unname(group_la
 df_n <- sub_s[, .(Mean_F1 = mean(F1, na.rm = TRUE)), by = .(Group_Name, Method_Name, SampleSize)]
 df_noise <- sub_s[, .(Mean_F1 = mean(F1, na.rm = TRUE)), by = .(Group_Name, Method_Name, Noise)]
 
-# Optional scaled-budget large-N points from Job 1b
+# Optional scaled-budget large-N points from Job 1
 scaled_pts <- NULL
-if (file.exists("results/ablation_native/job1_mpm_pruning_and_largeN.csv")) {
-  j1 <- fread("results/ablation_native/job1_mpm_pruning_and_largeN.csv")
-  j1b <- j1[SubJob == "1b_LargeN" & Variant == "BGNLM_ScaledBudget_SqrtN"]
+if (file.exists("results/ablation_native/job1_largeN_scaling.csv")) {
+  j1 <- fread("results/ablation_native/job1_largeN_scaling.csv")
+  j1b <- j1[SubJob == "1_LargeN" & Variant == "BGNLM_ScaledBudget_SqrtN"]
   if (nrow(j1b) > 0L) {
     j1b[, Group_Name := factor(ifelse(System == "sys02_lorenz63", group_labels[["Group_A_Polynomial"]], group_labels[["Group_B_NonPolynomial"]]),
                                levels = unname(group_labels))]
@@ -7739,6 +7687,111 @@ jsonlite::write_json(renv_lock, "renv.lock", pretty = TRUE, auto_unbox = TRUE)
 message("[OK] Updated renv.lock.")
 
 
+=== FILE: scripts/prepare_pure_mpm_checkpoints.R ===
+#!/usr/bin/env Rscript
+# ==============================================================================
+# scripts/prepare_pure_mpm_checkpoints.R
+# Removes ONLY old cached task_*.rds checkpoints belonging to the methods whose
+# code changed (removing post-MPM 0.025 energy pruning, plus optional IWSM /
+# audited baselines), guarded by a one-time marker so interrupted reruns can
+# safely resume via scripts/run_remote_server.sh without re-deleting new runs.
+#
+# Usage:
+#   Rscript scripts/prepare_pure_mpm_checkpoints.R --suite synth --scope fbms5
+#   Rscript scripts/prepare_pure_mpm_checkpoints.R --suite real --scope fbms5_plus_audited
+# ==============================================================================
+
+suppressPackageStartupMessages({
+  library(data.table)
+})
+
+args <- commandArgs(trailingOnly = TRUE)
+get_arg <- function(flag, default = NULL) {
+  idx <- which(args == flag)
+  if (length(idx) > 0L && length(args) > idx) args[idx + 1L] else default
+}
+
+suite <- get_arg("--suite", "both")
+scope <- get_arg("--scope", "fbms5")
+dry_run <- "--dry_run" %in% args
+force_clear <- "--force" %in% args
+
+scope_methods <- switch(
+  scope,
+  "fbms5" = c(
+    "BGNLM_Full_Tuned",
+    "BGNLM_Hybrid_Poly",
+    "BGLM_Oracle_Basis",
+    "BGLM_Poly_Basis",
+    "BGLM_Overcomplete"
+  ),
+  "fbms6" = c(
+    "BGNLM_Full_Tuned",
+    "BGNLM_Hybrid_Poly",
+    "BGLM_Oracle_Basis",
+    "BGLM_Poly_Basis",
+    "BGLM_Overcomplete",
+    "BGNLM_IWSM_Untuned"
+  ),
+  "fbms5_plus_audited" = c(
+    "BGNLM_Full_Tuned",
+    "BGNLM_Hybrid_Poly",
+    "BGLM_Oracle_Basis",
+    "BGLM_Poly_Basis",
+    "BGLM_Overcomplete",
+    "SINDy_STLSQ_Oracle",
+    "SINDy_STLSQ_Poly",
+    "UQ_SINDy_Oracle",
+    "UQ_SINDy_Poly",
+    "SINDy_PI_Rational",
+    "SR_PySR",
+    "SR_Operon"
+  ),
+  "all" = NULL,
+  stop("Unknown --scope: ", scope, " (expected fbms5, fbms6, fbms5_plus_audited, all)")
+)
+
+clear_suite <- function(s) {
+  manifest_path <- file.path("config", paste0("manifest_", s, ".csv"))
+  ckpt_dir <- file.path("results", paste0("checkpoints_", s))
+  dir.create(ckpt_dir, recursive = TRUE, showWarnings = FALSE)
+  marker <- file.path(ckpt_dir, sprintf(".pure_mpm_cleared_%s", scope))
+
+  if (file.exists(marker) && !force_clear) {
+    message(sprintf("[SKIP] Suite '%s' already pruned for scope '%s' (marker: %s). Preserving resumed checkpoints.", s, scope, marker))
+    return(invisible(NULL))
+  }
+
+  man <- fread(manifest_path)
+  if (is.null(scope_methods)) {
+    target_ids <- man$task_id
+  } else {
+    target_ids <- man[method_id %in% scope_methods, task_id]
+  }
+  target_files <- file.path(ckpt_dir, sprintf("task_%06d.rds", target_ids))
+  existing <- target_files[file.exists(target_files)]
+
+  message(sprintf(
+    "[PREPARE PURE-MPM] Suite='%s' scope='%s': %d manifest tasks targeted, %d existing checkpoints on disk (%s).",
+    s, scope, length(target_ids), length(existing), if (dry_run) "DRY-RUN" else "REMOVING"
+  ))
+
+  if (!dry_run) {
+    if (length(existing) > 0L) {
+      unlink(existing)
+    }
+    writeLines(c(
+      paste0("timestamp=", format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z")),
+      paste0("scope=", scope),
+      paste0("removed_count=", length(existing))
+    ), marker)
+  }
+}
+
+if (suite %in% c("synth", "both")) clear_suite("synth")
+if (suite %in% c("real", "both")) clear_suite("real")
+
+
 === FILE: scripts/prune_failed_checkpoints.R ===
 #!/usr/bin/env Rscript
 # ==============================================================================
@@ -8134,6 +8187,104 @@ if (nrow(icc_synth) > 0L || nrow(icc_real) > 0L) {
 
 
 
+=== FILE: scripts/run_pure_mpm_ssh.sh ===
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ==============================================================================
+# scripts/run_pure_mpm_ssh.sh
+# End-to-end Pure-MPM SSH rerun pipeline for nam-shub-01 (no SLURM required).
+# Runs fast suites first (tuning -> targeted ablation -> real -> synth),
+# safely clearing old pre-Pure-MPM checkpoints once per suite so restarts resume.
+#
+# Usage on nam-shub-01:
+#   nohup ./scripts/run_pure_mpm_ssh.sh [NUM_WORKERS=44] [SCOPE=fbms5] [SUITE=all] > run_pure_mpm.log 2>&1 &
+#
+# Arguments:
+#   NUM_WORKERS : Concurrent xargs R workers for real/synth (default: 44 on 56-core server)
+#   SCOPE       : fbms5 (default, 5 methods that had 0.025) | fbms6 (+ IWSM) |
+#                 fbms5_plus_audited (5 FBMS + 7 non-FBMS audited baselines) | all
+#   SUITE       : all (default: tuning + ablation + real + synth) | fast (tuning + ablation + real) |
+#                 synth_only | real_only
+# ==============================================================================
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+
+NUM_WORKERS="${1:-44}"
+SCOPE="${2:-fbms5}"
+SUITE="${3:-all}"
+ABL_CORES="${ABL_CORES:-8}"
+
+# Load EasyBuild R module on nam-shub-01 if available (do NOT load Python module)
+if command -v module >/dev/null 2>&1; then
+  module load R/4.5.2-gfbf-2025b 2>/dev/null || true
+elif [ -f /etc/profile.d/modules.sh ]; then
+  # shellcheck disable=SC1091
+  source /etc/profile.d/modules.sh
+  module load R/4.5.2-gfbf-2025b 2>/dev/null || true
+fi
+
+if ! command -v Rscript >/dev/null 2>&1; then
+  echo "[ERROR] Rscript not found! Load the R module or run ./scripts/setup_server.sh first."
+  exit 1
+fi
+
+if [ -d "$REPO_ROOT/.r_lib" ]; then
+  export R_LIBS_USER="$REPO_ROOT/.r_lib"
+  export R_LIBS="$REPO_ROOT/.r_lib"
+fi
+
+if [ -f "$REPO_ROOT/.venv/bin/activate" ]; then
+  # shellcheck disable=SC1091
+  source "$REPO_ROOT/.venv/bin/activate"
+  export VIRTUAL_ENV="$REPO_ROOT/.venv"
+  export PATH="$REPO_ROOT/.venv/bin:$PATH"
+fi
+
+export PYSR_USE_JULIA=1
+export PYOPERON_NATIVE=1
+export SINDY_LEGACY_UNSTD_THRESH=0
+export USE_AUTHENTIC_EMPIRICAL=1
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export VECLIB_MAXIMUM_THREADS=1
+export JULIA_NUM_THREADS=1
+
+echo "========================================================================"
+echo "[PURE-MPM SSH] Starting run at $(date)"
+echo "  NUM_WORKERS=$NUM_WORKERS | SCOPE=$SCOPE | SUITE=$SUITE | ABL_CORES=$ABL_CORES"
+echo "========================================================================"
+
+if [[ "$SUITE" == "all" || "$SUITE" == "fast" ]]; then
+  echo "[STEP 1/4] Updating authentic real-world datasets..."
+  Rscript scripts/download_real_data.R
+
+  echo "[STEP 2/4] Re-running BGNLM calibration tuning suite (Experiment 0)..."
+  Rscript scripts/run_tuning.R --full --cores "$ABL_CORES"
+
+  echo "[STEP 3/4] Re-running targeted ablation Jobs 1-4 (Pure MPM + Native PySR/PyOperon)..."
+  ABLATION_JOBS="1,2,3,4" CORES="$ABL_CORES" ./scripts/run_targeted_ablation.sh "$ABL_CORES"
+fi
+
+if [[ "$SUITE" == "all" || "$SUITE" == "fast" || "$SUITE" == "real_only" ]]; then
+  echo "[STEP 4A] Pruning old '$SCOPE' checkpoints for 'real' and launching benchmark..."
+  Rscript scripts/prepare_pure_mpm_checkpoints.R --suite real --scope "$SCOPE"
+  ./scripts/run_remote_server.sh real "$NUM_WORKERS" 1
+fi
+
+if [[ "$SUITE" == "all" || "$SUITE" == "synth_only" ]]; then
+  echo "[STEP 4B] Pruning old '$SCOPE' checkpoints for 'synth' and launching benchmark..."
+  Rscript scripts/prepare_pure_mpm_checkpoints.R --suite synth --scope "$SCOPE"
+  ./scripts/run_remote_server.sh synth "$NUM_WORKERS" 1
+fi
+
+echo "========================================================================"
+echo "[PURE-MPM SSH] Finished at $(date). Aggregated results in results/aggregated/ and results/ablation_native/."
+echo "========================================================================"
+
+
 === FILE: scripts/run_remote_server.sh ===
 #!/usr/bin/env bash
 set -euo pipefail
@@ -8511,8 +8662,7 @@ message(sprintf("[DONE] suite=%s task_id=%d method=%s F1=%.3f R2_ood=%.3f R2_tra
 # ==============================================================================
 # scripts/run_targeted_ablation.R
 # Targeted Follow-Up Ablation & Fair Native Benchmark Suite (Jobs 1-4):
-#   Job 1: Pure Bayesian MPM (tau=0) vs Pruned MPM (tau=0.025), BMA vs MPM-OLS,
-#          Symmetric SINDy pruning, & Large-N (N=200..2500) scaling diagnosis/fix
+#   Job 1: Large-N (N=500..2500) scaling diagnosis/fix (r=1/sqrt(N), scaled P/N_mcmc) + BMA vs MPM-OLS
 #   Job 2: Fair Baselines Head-to-Head (Fixed Bag-STLSQ with lambda*, UQ_SINDy_Bayes
 #          via BAS::bas.lm, WSINDy Galerkin integral, SINDy_PI_Rat deg-3,
 #          Native PySR & PyOperon, sin_deg check on IWSM, & PIP calibration bins)
@@ -8598,59 +8748,10 @@ score_fit_full <- function(fit_res, task_data, method_id, discovered_override = 
 }
 
 if (has_job("1")) {
-message("=== [JOB 1] MPM Energy Pruning, Symmetric SINDy Pruning, & Large-N Scaling ===")
+message("=== [JOB 1] Large-N Budget Scaling (r=N^-1/2, Scaled P/N_mcmc) & BMA ===")
 job1_rows <- list()
 
-# 1a: Pruning & BMA comparison at N=400, sigma=0.05
-j1a_systems <- if (smoke_mode) "sys02_lorenz63" else c("sys02_lorenz63", "sys08_rossler_lorenz_hybrid", "sys11_goodwin_mm")
-j1a_seeds <- if (smoke_mode) 101L else c(101L, 202L, 303L)
-
-for (sys_id in j1a_systems) {
-  for (sd in j1a_seeds) {
-    td <- generate_synthetic_task_data(sys_id, N_train = 400L, noise_eta = 0.05, noise_regime = "derivative_snr", seed = sd)
-
-    # Fit BGNLM_Full_Tuned once; extracts BOTH pruned MPM (tau=0.025), Pure MPM (tau=0), and BMA mean
-    t0 <- proc.time()[3]
-    fit_b <- run_safe_call(function() run_fbms_method("BGNLM_Full_Tuned", td, cores = cores_arg, tuning_override = list(runs = 4L), fast_mode = smoke_mode))
-    el_b <- as.numeric(proc.time()[3] - t0)
-    ev_pruned <- score_fit_full(fit_b, td, "BGNLM_Full_Tuned")
-    ev_pure <- score_fit_full(fit_b, td, "BGNLM_Full_PureMPM", discovered_override = if (!is.null(fit_b)) fit_b$discovered_raw else NULL)
-    ev_bma <- if (!is.null(fit_b) && all(is.finite(fit_b$pred_bma_ood))) {
-      compute_prediction_metrics(fit_b$pred_bma_ood, td$Y_test_ood_clean)$R2_clipped
-    } else NA_real_
-
-    job1_rows[[length(job1_rows) + 1L]] <- data.table(
-      SubJob = "1a_Pruning", System = sys_id, SampleSize = 400L, Seed = sd,
-      Variant = "BGNLM_Full_Pruned_0.025", F1 = ev_pruned$F1, FDR = ev_pruned$FDR, Exact = ev_pruned$Exact,
-      R2_ood = ev_pruned$R2_ood, R2_ood_BMA = ev_bma, R2_traj = ev_pruned$R2_traj, Runtime_s = el_b
-    )
-    job1_rows[[length(job1_rows) + 1L]] <- data.table(
-      SubJob = "1a_Pruning", System = sys_id, SampleSize = 400L, Seed = sd,
-      Variant = "BGNLM_Full_PureMPM_0", F1 = ev_pure$F1, FDR = ev_pure$FDR, Exact = ev_pure$Exact,
-      R2_ood = ev_pruned$R2_ood, R2_ood_BMA = ev_bma, R2_traj = NA_real_, Runtime_s = el_b
-    )
-
-    # Symmetric SINDy pruning comparison (tau=0 vs tau=0.025)
-    for (s_mid in c("SINDy_STLSQ_Oracle", "SINDy_STLSQ_Poly")) {
-      for (ptol in c(0.0, 0.025)) {
-        t0s <- proc.time()[3]
-        fs <- run_safe_call(function() run_sindy_baseline(s_mid, td, prune_tol = ptol))
-        els <- as.numeric(proc.time()[3] - t0s)
-        evs <- score_fit_full(fs, td, s_mid)
-        v_nm <- paste0(s_mid, ifelse(ptol > 0, "_Pruned_0.025", "_Unpruned"))
-        job1_rows[[length(job1_rows) + 1L]] <- data.table(
-          SubJob = "1a_Pruning", System = sys_id, SampleSize = 400L, Seed = sd,
-          Variant = v_nm, F1 = evs$F1, FDR = evs$FDR, Exact = evs$Exact,
-          R2_ood = evs$R2_ood, R2_ood_BMA = NA_real_, R2_traj = evs$R2_traj, Runtime_s = els
-        )
-      }
-    }
-    message(sprintf("[JOB 1a] %s seed=%d | Pruned F1=%.3f PureMPM F1=%.3f (BMA R2=%.3f vs MPM-OLS R2=%.3f)",
-                    sys_id, sd, ev_pruned$F1, ev_pure$F1, ifelse(is.na(ev_bma), -1, ev_bma), ev_pruned$R2_ood))
-  }
-}
-
-# 1b: Large-N scaling diagnosis & fix (Fixed budget r=1/N, P=15, N=500 vs Scaled budget r=1/sqrt(N), P=16, N=800)
+# Large-N scaling diagnosis & fix (Fixed budget r=1/N, P=15, N=500 vs Scaled budget r=1/sqrt(N), P=16, N=800)
 j1b_specs <- if (smoke_mode) {
   list(list(sys = "sys11_goodwin_mm", N = 200L), list(sys = "sys11_goodwin_mm", N = 1000L))
 } else {
@@ -8663,19 +8764,23 @@ j1b_specs <- if (smoke_mode) {
 }
 j1b_seeds <- if (smoke_mode) 101L else c(101L, 202L)
 
-for (sp in j1b_specs) {
-  sys_id <- sp$sys; N_tr <- sp$N
-  for (sd in j1b_seeds) {
-    td <- generate_synthetic_task_data(sys_id, N_train = N_tr, noise_eta = 0.05, noise_regime = "derivative_snr", seed = sd)
+  for (sp in j1b_specs) {
+    sys_id <- sp$sys
+    N_tr <- sp$N
+    for (sd in j1b_seeds) {
+      td <- generate_synthetic_task_data(sys_id, N_train = N_tr, noise_eta = 0.05, noise_regime = "derivative_snr", seed = sd)
 
     # Baseline tuned budget
     t0 <- proc.time()[3]
     f_base <- run_safe_call(function() run_fbms_method("BGNLM_Full_Tuned", td, cores = cores_arg, tuning_override = list(runs = 4L), fast_mode = smoke_mode))
     ev_base <- score_fit_full(f_base, td, "BGNLM_FixedBudget")
+    bma_base <- if (!is.null(f_base) && all(is.finite(f_base$pred_bma_ood))) {
+      compute_prediction_metrics(f_base$pred_bma_ood, td$Y_test_ood_clean)$R2_clipped
+    } else NA_real_
     job1_rows[[length(job1_rows) + 1L]] <- data.table(
-      SubJob = "1b_LargeN", System = sys_id, SampleSize = N_tr, Seed = sd,
+      SubJob = "1_LargeN", System = sys_id, SampleSize = N_tr, Seed = sd,
       Variant = "BGNLM_Baseline_FixedBudget", F1 = ev_base$F1, FDR = ev_base$FDR, Exact = ev_base$Exact,
-      R2_ood = ev_base$R2_ood, R2_ood_BMA = NA_real_, R2_traj = ev_base$R2_traj, Runtime_s = as.numeric(proc.time()[3] - t0)
+      R2_ood = ev_base$R2_ood, R2_ood_BMA = bma_base, R2_traj = ev_base$R2_traj, Runtime_s = as.numeric(proc.time()[3] - t0)
     )
 
     # Scaled budget + sqrt(N) prior fix
@@ -8683,90 +8788,83 @@ for (sp in j1b_specs) {
     ovr <- list(P_generations = if (smoke_mode) 8L else 16L, N_mcmc = if (smoke_mode) 300L else 800L, runs = 4L, model_prior = list(r = 1.0 / sqrt(N_tr)))
     f_scaled <- run_safe_call(function() run_fbms_method("BGNLM_Full_Tuned", td, cores = cores_arg, tuning_override = ovr, fast_mode = FALSE))
     ev_sc <- score_fit_full(f_scaled, td, "BGNLM_ScaledBudget")
+    bma_sc <- if (!is.null(f_scaled) && all(is.finite(f_scaled$pred_bma_ood))) {
+      compute_prediction_metrics(f_scaled$pred_bma_ood, td$Y_test_ood_clean)$R2_clipped
+    } else NA_real_
     job1_rows[[length(job1_rows) + 1L]] <- data.table(
-      SubJob = "1b_LargeN", System = sys_id, SampleSize = N_tr, Seed = sd,
+      SubJob = "1_LargeN", System = sys_id, SampleSize = N_tr, Seed = sd,
       Variant = "BGNLM_ScaledBudget_SqrtN", F1 = ev_sc$F1, FDR = ev_sc$FDR, Exact = ev_sc$Exact,
-      R2_ood = ev_sc$R2_ood, R2_ood_BMA = NA_real_, R2_traj = ev_sc$R2_traj, Runtime_s = as.numeric(proc.time()[3] - t1)
+      R2_ood = ev_sc$R2_ood, R2_ood_BMA = bma_sc, R2_traj = ev_sc$R2_traj, Runtime_s = as.numeric(proc.time()[3] - t1)
     )
-    message(sprintf("[JOB 1b] %s N=%d seed=%d | Base F1=%.3f | Scaled F1=%.3f", sys_id, N_tr, sd, ev_base$F1, ev_sc$F1))
-    fwrite(rbindlist(job1_rows, fill = TRUE), "results/ablation_native/job1_mpm_pruning_and_largeN.csv")
+    message(sprintf("[JOB 1] %s N=%d seed=%d | Base F1=%.3f | Scaled F1=%.3f", sys_id, N_tr, sd, ev_base$F1, ev_sc$F1))
+    fwrite(rbindlist(job1_rows, fill = TRUE), "results/ablation_native/job1_largeN_scaling.csv")
   }
 }
 
 dt_job1 <- rbindlist(job1_rows, fill = TRUE)
-fwrite(dt_job1, "results/ablation_native/job1_mpm_pruning_and_largeN.csv")
-message("[OK] Saved results/ablation_native/job1_mpm_pruning_and_largeN.csv")
+fwrite(dt_job1, "results/ablation_native/job1_largeN_scaling.csv")
+message("[OK] Saved results/ablation_native/job1_largeN_scaling.csv")
 }
 
 # ==============================================================================
 # JOB 2: Fair Baselines Head-to-Head + sin_deg Check + PIP Calibration Reliability
 # ==============================================================================
 if (has_job("2")) {
-message("=== [JOB 2] Fair Baselines Head-to-Head & PIP Calibration ===")
-j2_systems <- if (smoke_mode) c("sys02_lorenz63", "sys09_damped_pendulum") else c("sys02_lorenz63", "sys08_rossler_lorenz_hybrid", "sys09_damped_pendulum", "sys11_goodwin_mm")
-j2_regimes <- c("derivative_snr", "state_noise")
-j2_seeds <- if (smoke_mode) 101L else c(101L, 202L)
-j2_methods <- c(
-  "BGNLM_Full_Tuned", "BGNLM_IWSM_Untuned",
-  "SINDy_STLSQ_Oracle", "SINDy_STLSQ_Poly",
-  "UQ_SINDy_Poly", "UQ_SINDy_Bayes_Poly", "UQ_SINDy_Bayes_Oracle",
-  "WSINDy_Poly", "WSINDy_Oracle", "SINDy_PI_Rational",
-  "SR_PySR", "SR_Operon"
-)
+  message("=== [JOB 2] Fair Baselines Head-to-Head & PIP Calibration ===")
+  j2_systems <- if (smoke_mode) c("sys02_lorenz63", "sys09_damped_pendulum") else c("sys02_lorenz63", "sys08_rossler_lorenz_hybrid", "sys09_damped_pendulum", "sys11_goodwin_mm")
+  j2_regimes <- c("derivative_snr", "state_noise")
+  j2_seeds <- if (smoke_mode) 101L else c(101L, 202L)
+  j2_methods <- c(
+    "BGNLM_Full_Tuned", "BGNLM_IWSM_Untuned",
+    "SINDy_STLSQ_Oracle", "SINDy_STLSQ_Poly",
+    "UQ_SINDy_Poly", "UQ_SINDy_Bayes_Poly", "UQ_SINDy_Bayes_Oracle",
+    "WSINDy_Poly", "WSINDy_Oracle", "SINDy_PI_Rational",
+    "SR_PySR", "SR_Operon"
+  )
 
-job2_rows <- list()
-pip_calib_rows <- list()
+  job2_rows <- list()
+  pip_calib_rows <- list()
 
-dispatch_j2 <- function(mid, td) {
-  if (mid %in% c("BGNLM_Full_Tuned", "BGNLM_IWSM_Untuned")) {
-    run_fbms_method(mid, td, cores = cores_arg, tuning_override = list(runs = 4L), fast_mode = smoke_mode)
-  } else if (mid %in% c("SINDy_STLSQ_Oracle", "SINDy_STLSQ_Poly", "UQ_SINDy_Poly", "SINDy_PI_Rational")) {
-    run_sindy_baseline(mid, td, n_boot = if (smoke_mode) 25L else 80L)
-  } else if (mid == "UQ_SINDy_Bayes_Poly") {
-    run_uq_sindy_bayes(td, dict_type = "poly")
-  } else if (mid == "UQ_SINDy_Bayes_Oracle") {
-    run_uq_sindy_bayes(td, dict_type = "oracle")
-  } else if (mid == "WSINDy_Poly") {
-    run_wsindy_baseline(td, dict_type = "poly")
-  } else if (mid == "WSINDy_Oracle") {
-    run_wsindy_baseline(td, dict_type = "oracle")
-  } else if (mid %in% c("SR_PySR", "SR_Operon")) {
-    run_sr_baseline(mid, td, strict_native = TRUE)
-  } else stop("Unknown method: ", mid)
-}
+  dispatch_j2 <- function(mid, td) {
+    if (mid %in% c("BGNLM_Full_Tuned", "BGNLM_IWSM_Untuned")) {
+      run_fbms_method(mid, td, cores = cores_arg, tuning_override = list(runs = 4L), fast_mode = smoke_mode)
+    } else if (mid %in% c("SINDy_STLSQ_Oracle", "SINDy_STLSQ_Poly", "UQ_SINDy_Poly", "SINDy_PI_Rational")) {
+      run_sindy_baseline(mid, td, n_boot = if (smoke_mode) 25L else 80L)
+    } else if (mid == "UQ_SINDy_Bayes_Poly") {
+      run_uq_sindy_bayes(td, dict_type = "poly")
+    } else if (mid == "UQ_SINDy_Bayes_Oracle") {
+      run_uq_sindy_bayes(td, dict_type = "oracle")
+    } else if (mid == "WSINDy_Poly") {
+      run_wsindy_baseline(td, dict_type = "poly")
+    } else if (mid == "WSINDy_Oracle") {
+      run_wsindy_baseline(td, dict_type = "oracle")
+    } else if (mid %in% c("SR_PySR", "SR_Operon")) {
+      run_sr_baseline(mid, td, strict_native = TRUE)
+    } else {
+      stop("Unknown method: ", mid)
+    }
+  }
 
-for (sys_id in j2_systems) {
-  base_tr <- simulate_base_trajectory(sys_id)
-  for (reg in j2_regimes) {
-    for (sd in j2_seeds) {
-      td <- generate_synthetic_task_data(sys_id, N_train = 300L, noise_eta = 0.05, noise_regime = reg, seed = sd)
-      if (reg == "state_noise") {
-        # Provide N=300 equispaced contiguous noisy state trajectory from [0.05T, 0.55T] for WSINDy (same N & SNR, zero test leakage)
-        idx_win <- which(base_tr$times > 0.05 * base_tr$T_max & base_tr$times < 0.55 * base_tr$T_max)
-        idx_eq <- idx_win[round(seq(1L, length(idx_win), length.out = 300L))]
-        X_eq <- base_tr$X[idx_eq, , drop = FALSE]
-        set.seed(sd + 999L)
-        X_eq_noisy <- X_eq + sapply(seq_len(ncol(X_eq)), function(c_i) rnorm(nrow(X_eq), 0.0, td$noise_sd_vec[c_i]))
-        td$t_seq <- base_tr$times[idx_eq]
-        td$X_seq <- X_eq_noisy
-      }
-      for (mid in j2_methods) {
-        t0 <- proc.time()[3]
-        fr <- run_safe_call(function() dispatch_j2(mid, td))
-        el <- as.numeric(proc.time()[3] - t0)
-        ev <- score_fit_full(fr, td, mid)
-
-        if (mid == "BGNLM_Full_Tuned" && !is.null(fr)) {
-          ev_raw <- score_fit_full(fr, td, "BGNLM_Full_PureMPM", discovered_override = fr$discovered_raw)
-          job2_rows[[length(job2_rows) + 1L]] <- data.table(
-            System = sys_id, NoiseRegime = reg, Seed = sd, Method = "BGNLM_Full_PureMPM", Engine = ev$Engine,
-            Status = "OK", F1 = ev_raw$F1, TPR = ev_raw$TPR, FDR = ev_raw$FDR, Exact = ev_raw$Exact,
-            SHD = ev_raw$SHD, OC = ev_raw$OC, PIP_Brier = ev$PIP_Brier, PIP_SSPE = ev$PIP_SSPE,
-            PIP_AUROC = ev$PIP_AUROC, PIP_AUPRC = ev$PIP_AUPRC,
-            R2_ood = ev$R2_ood, R2_traj = NA_real_, Coverage_95_ood = ev$Coverage_95_ood,
-            Runtime_s = el, Discovered_Atoms = ev_raw$Discovered_Atoms
-          )
+  for (sys_id in j2_systems) {
+    base_tr <- simulate_base_trajectory(sys_id)
+    for (reg in j2_regimes) {
+      for (sd in j2_seeds) {
+        td <- generate_synthetic_task_data(sys_id, N_train = 300L, noise_eta = 0.05, noise_regime = reg, seed = sd)
+        if (reg == "state_noise") {
+          # Provide N=300 equispaced contiguous noisy state trajectory from [0.05T, 0.55T] for WSINDy (same N & SNR, zero test leakage)
+          idx_win <- which(base_tr$times > 0.05 * base_tr$T_max & base_tr$times < 0.55 * base_tr$T_max)
+          idx_eq <- idx_win[round(seq(1L, length(idx_win), length.out = 300L))]
+          X_eq <- base_tr$X[idx_eq, , drop = FALSE]
+          set.seed(sd + 999L)
+          X_eq_noisy <- X_eq + sapply(seq_len(ncol(X_eq)), function(c_i) rnorm(nrow(X_eq), 0.0, td$noise_sd_vec[c_i]))
+          td$t_seq <- base_tr$times[idx_eq]
+          td$X_seq <- X_eq_noisy
         }
+        for (mid in j2_methods) {
+          t0 <- proc.time()[3]
+          fr <- run_safe_call(function() dispatch_j2(mid, td))
+          el <- as.numeric(proc.time()[3] - t0)
+          ev <- score_fit_full(fr, td, mid)
 
         if (!is.null(ev$cal_m) && nrow(ev$cal_m$reliability) > 0L &&
             mid %in% c("BGNLM_Full_Tuned", "UQ_SINDy_Bayes_Poly", "UQ_SINDy_Poly")) {
@@ -8785,16 +8883,16 @@ for (sys_id in j2_systems) {
         )
         message(sprintf("[JOB 2] %s | %s | seed=%d | %s (%s) -> F1=%.3f FDR=%.3f R2_traj=%.3f (%.1fs)",
                         sys_id, reg, sd, mid, ev$Engine, ev$F1, ifelse(is.na(ev$FDR), -1, ev$FDR), ev$R2_traj, el))
+        }
       }
     }
   }
-}
 
-fwrite(rbindlist(job2_rows, fill = TRUE), "results/ablation_native/job2_fair_baselines_synth.csv")
-if (length(pip_calib_rows) > 0L) {
-  fwrite(rbindlist(pip_calib_rows, fill = TRUE), "results/ablation_native/pip_calibration_reliability.csv")
-}
-message("[OK] Saved job2_fair_baselines_synth.csv & pip_calibration_reliability.csv")
+  fwrite(rbindlist(job2_rows, fill = TRUE), "results/ablation_native/job2_fair_baselines_synth.csv")
+  if (length(pip_calib_rows) > 0L) {
+    fwrite(rbindlist(pip_calib_rows, fill = TRUE), "results/ablation_native/pip_calibration_reliability.csv")
+  }
+  message("[OK] Saved job2_fair_baselines_synth.csv & pip_calibration_reliability.csv")
 }
 
 # ==============================================================================
@@ -8803,97 +8901,100 @@ message("[OK] Saved job2_fair_baselines_synth.csv & pip_calibration_reliability.
 #   System B: Non-Unit Km Goodwin dx1 = 1/(1+x3^2) - 0.5*x1, dx2 = x1 - 0.8*x2/(0.3 + x2), dx3 = x2 - 0.5*x3
 # ==============================================================================
 if (has_job("3")) {
-message("=== [JOB 3] Non-Unit Internal Parameter Stress Test ===")
-build_custom_task <- function(sys_def, N_train = 300L, noise_eta = 0.03, seed = 101L) {
-  times <- seq(0, sys_def$T_max, by = sys_def$dt)
-  sol <- as.data.frame(deSolve::ode(y = sys_def$y0, times = times, func = sys_def$rhs, parms = sys_def$parms, method = "lsoda"))
-  X_all <- as.matrix(sol[, -1, drop = FALSE]); colnames(X_all) <- sys_def$state_names
-  t_all <- sol[, 1]
-  dX_all <- sys_def$analytical_deriv(X_all, sys_def$parms)
-  set.seed(seed)
-  n_tot <- nrow(X_all)
-  idx_int <- which(t_all > 0.05 * sys_def$T_max & t_all < 0.90 * sys_def$T_max)
-  idx_ood_all <- which(t_all >= 0.90 * sys_def$T_max)
-  samp <- sort(sample(idx_int, size = min(length(idx_int), N_train + 300L)))
-  idx_tr <- samp[seq_len(N_train)]
-  idx_in <- setdiff(samp, idx_tr)
-  idx_ood <- idx_ood_all[round(seq(1, length(idx_ood_all), length.out = 300L))]
+  message("=== [JOB 3] Non-Unit Internal Parameter Stress Test ===")
+  build_custom_task <- function(sys_def, N_train = 300L, noise_eta = 0.03, seed = 101L) {
+    times <- seq(0, sys_def$T_max, by = sys_def$dt)
+    sol <- as.data.frame(deSolve::ode(y = sys_def$y0, times = times, func = sys_def$rhs, parms = sys_def$parms, method = "lsoda"))
+    X_all <- as.matrix(sol[, -1, drop = FALSE])
+    colnames(X_all) <- sys_def$state_names
+    t_all <- sol[, 1]
+    dX_all <- sys_def$analytical_deriv(X_all, sys_def$parms)
+    set.seed(seed)
+    n_tot <- nrow(X_all)
+    idx_int <- which(t_all > 0.05 * sys_def$T_max & t_all < 0.90 * sys_def$T_max)
+    idx_ood_all <- which(t_all >= 0.90 * sys_def$T_max)
+    samp <- sort(sample(idx_int, size = min(length(idx_int), N_train + 300L)))
+    idx_tr <- samp[seq_len(N_train)]
+    idx_in <- setdiff(samp, idx_tr)
+    idx_ood <- idx_ood_all[round(seq(1, length(idx_ood_all), length.out = 300L))]
 
-  m <- ncol(X_all)
-  sd_d <- pmax(apply(dX_all[idx_int, , drop = FALSE], 2, sd), 1e-6)
-  eps_tr <- sapply(seq_len(m), function(j) rnorm(length(idx_tr), 0, noise_eta * sd_d[j]))
-  eps_in <- sapply(seq_len(m), function(j) rnorm(length(idx_in), 0, noise_eta * sd_d[j]))
-  eps_ood <- sapply(seq_len(m), function(j) rnorm(length(idx_ood), 0, noise_eta * sd_d[j]))
-  roll_idx <- idx_ood_all[seq(1L, min(length(idx_ood_all), 2000L), by = 10L)]
+    m <- ncol(X_all)
+    sd_d <- pmax(apply(dX_all[idx_int, , drop = FALSE], 2, sd), 1e-6)
+    eps_tr <- sapply(seq_len(m), function(j) rnorm(length(idx_tr), 0, noise_eta * sd_d[j]))
+    eps_in <- sapply(seq_len(m), function(j) rnorm(length(idx_in), 0, noise_eta * sd_d[j]))
+    eps_ood <- sapply(seq_len(m), function(j) rnorm(length(idx_ood), 0, noise_eta * sd_d[j]))
+    roll_idx <- idx_ood_all[seq(1L, min(length(idx_ood_all), 2000L), by = 10L)]
 
-  list(
-    system = list(
-      sys_id = sys_def$sys_id, id = sys_def$id, name = sys_def$name,
-      dim = m, state_names = sys_def$state_names, feature_names = sys_def$state_names,
-      input_names = character(0), ground_truth = sys_def$ground_truth,
-      oracle_extra_basis = character(0)
-    ),
-    seed = seed, N_train = N_train,
-    t_train = t_all[idx_tr],
-    X_train = X_all[idx_tr, , drop = FALSE], Y_train = dX_all[idx_tr, , drop = FALSE] + eps_tr,
-    Y_train_clean = dX_all[idx_tr, , drop = FALSE],
-    X_test_in = X_all[idx_in, , drop = FALSE],
-    Y_test_in_clean = dX_all[idx_in, , drop = FALSE], Y_test_in_noisy = dX_all[idx_in, , drop = FALSE] + eps_in,
-    X_test_ood = X_all[idx_ood, , drop = FALSE],
-    Y_test_ood_clean = dX_all[idx_ood, , drop = FALSE], Y_test_ood_noisy = dX_all[idx_ood, , drop = FALSE] + eps_ood,
-    rollout = list(times = t_all[roll_idx] - t_all[roll_idx[1]], X_true = X_all[roll_idx, , drop = FALSE], x0 = X_all[roll_idx[1], ])
-  )
-}
-
-nonunit_systems <- list(
-  nonunit_pendulum_2theta = list(
-    sys_id = 901L, id = "nonunit_pendulum_2theta", name = "Non-Unit Frequency Pendulum sin(2*x1)",
-    dt = 0.002, T_max = 20.0, y0 = c(x1 = 1.8, x2 = 0.0), parms = c(g = 0.25, a = 5.0),
-    state_names = c("x1", "x2"),
-    rhs = function(t, s, p) list(c(s[2], -p["g"] * s[2] - p["a"] * sin(2.0 * s[1]))),
-    analytical_deriv = function(X, p) cbind(dx1 = X[, 2], dx2 = -p["g"] * X[, 2] - p["a"] * sin(2.0 * X[, 1])),
-    ground_truth = list(c("x2"), c("x2", "sin(2*x1)"))
-  ),
-  nonunit_mm_km03 = list(
-    sys_id = 902L, id = "nonunit_mm_km03", name = "Non-Unit Michaelis-Menten (Km=0.3)",
-    dt = 0.002, T_max = 30.0, y0 = c(x1 = 0.5, x2 = 0.5, x3 = 0.5), parms = c(k = 0.5),
-    state_names = c("x1", "x2", "x3"),
-    rhs = function(t, s, p) list(c(1.0 / (1.0 + s[3]^2) - 0.5 * s[1], s[1] - 0.8 * s[2] / (0.3 + abs(s[2])), s[2] - 0.5 * s[3])),
-    analytical_deriv = function(X, p) cbind(dx1 = 1.0 / (1.0 + X[, 3]^2) - 0.5 * X[, 1], dx2 = X[, 1] - 0.8 * X[, 2] / (0.3 + abs(X[, 2])), dx3 = X[, 2] - 0.5 * X[, 3]),
-    ground_truth = list(c("x1", "1/(1+x3^2)"), c("x1", "x2/(0.3+x2)"), c("x2", "x3"))
-  )
-)
-
-j3_seeds <- if (smoke_mode) 101L else c(101L, 202L)
-job3_rows <- list()
-
-for (s_nm in names(nonunit_systems)) {
-  for (sd in j3_seeds) {
-    td <- build_custom_task(nonunit_systems[[s_nm]], N_train = 300L, noise_eta = 0.03, seed = sd)
-
-    variants <- list(
-      list(id = "BGNLM_Full_Tuned_pproj0", fn = function() run_fbms_method("BGNLM_Full_Tuned", td, cores = cores_arg, fast_mode = smoke_mode)),
-      list(id = "BGNLM_Full_Proj005", fn = function() run_fbms_method("BGNLM_Full_Tuned", td, cores = cores_arg, tuning_override = list(p_inter = 0.50, p_mod = 0.35, p_proj = 0.05, p_new = 0.10), fast_mode = smoke_mode)),
-      list(id = "SR_PySR", fn = function() run_sr_baseline("SR_PySR", td, strict_native = TRUE)),
-      list(id = "SR_Operon", fn = function() run_sr_baseline("SR_Operon", td, strict_native = TRUE))
+    list(
+      system = list(
+        sys_id = sys_def$sys_id, id = sys_def$id, name = sys_def$name,
+        dim = m, state_names = sys_def$state_names, feature_names = sys_def$state_names,
+        input_names = character(0), ground_truth = sys_def$ground_truth,
+        oracle_extra_basis = character(0)
+      ),
+      seed = seed, N_train = N_train,
+      t_train = t_all[idx_tr],
+      X_train = X_all[idx_tr, , drop = FALSE], Y_train = dX_all[idx_tr, , drop = FALSE] + eps_tr,
+      Y_train_clean = dX_all[idx_tr, , drop = FALSE],
+      X_test_in = X_all[idx_in, , drop = FALSE],
+      Y_test_in_clean = dX_all[idx_in, , drop = FALSE], Y_test_in_noisy = dX_all[idx_in, , drop = FALSE] + eps_in,
+      X_test_ood = X_all[idx_ood, , drop = FALSE],
+      Y_test_ood_clean = dX_all[idx_ood, , drop = FALSE], Y_test_ood_noisy = dX_all[idx_ood, , drop = FALSE] + eps_ood,
+      rollout = list(times = t_all[roll_idx] - t_all[roll_idx[1]], X_true = X_all[roll_idx, , drop = FALSE], x0 = X_all[roll_idx[1], ])
     )
-    for (v in variants) {
-      t0 <- proc.time()[3]
-      fr <- run_safe_call(v$fn)
-      el <- as.numeric(proc.time()[3] - t0)
-      ev <- score_fit_full(fr, td, v$id)
-      job3_rows[[length(job3_rows) + 1L]] <- data.table(
-        System = s_nm, Seed = sd, Method = v$id, Engine = ev$Engine, Status = ev$Status,
-        F1 = ev$F1, FDR = ev$FDR, R2_ood = ev$R2_ood, R2_traj = ev$R2_traj,
-        OC = ev$OC, Runtime_s = el, Discovered_Atoms = ev$Discovered_Atoms
+  }
+
+  nonunit_systems <- list(
+    nonunit_pendulum_2theta = list(
+      sys_id = 901L, id = "nonunit_pendulum_2theta", name = "Non-Unit Frequency Pendulum sin(2*x1)",
+      dt = 0.002, T_max = 20.0, y0 = c(x1 = 1.8, x2 = 0.0), parms = c(g = 0.25, a = 5.0),
+      state_names = c("x1", "x2"),
+      rhs = function(t, s, p) list(c(s[2], -p["g"] * s[2] - p["a"] * sin(2.0 * s[1]))),
+      analytical_deriv = function(X, p) cbind(dx1 = X[, 2], dx2 = -p["g"] * X[, 2] - p["a"] * sin(2.0 * X[, 1])),
+      ground_truth = list(c("x2"), c("x2", "sin(2*x1)"))
+    ),
+    nonunit_mm_km03 = list(
+      sys_id = 902L, id = "nonunit_mm_km03", name = "Non-Unit Michaelis-Menten (Km=0.3)",
+      dt = 0.002, T_max = 30.0, y0 = c(x1 = 0.5, x2 = 0.5, x3 = 0.5), parms = c(k = 0.5),
+      state_names = c("x1", "x2", "x3"),
+      rhs = function(t, s, p) list(c(1.0 / (1.0 + s[3]^2) - 0.5 * s[1], s[1] - 0.8 * s[2] / (0.3 + abs(s[2])), s[2] - 0.5 * s[3])),
+      analytical_deriv = function(X, p) cbind(dx1 = 1.0 / (1.0 + X[, 3]^2) - 0.5 * X[, 1], dx2 = X[, 1] - 0.8 * X[, 2] / (0.3 + abs(X[, 2])), dx3 = X[, 2] - 0.5 * X[, 3]),
+      ground_truth = list(c("x1", "1/(1+x3^2)"), c("x1", "x2/(0.3+x2)"), c("x2", "x3"))
+    )
+  )
+
+  j3_seeds <- if (smoke_mode) 101L else c(101L, 202L)
+  job3_rows <- list()
+
+  for (s_nm in names(nonunit_systems)) {
+    for (sd in j3_seeds) {
+      td <- build_custom_task(nonunit_systems[[s_nm]], N_train = 300L, noise_eta = 0.03, seed = sd)
+
+      variants <- list(
+        list(id = "BGNLM_Full_Tuned_pproj0", fn = function() run_fbms_method("BGNLM_Full_Tuned", td, cores = cores_arg, fast_mode = smoke_mode)),
+        list(id = "BGNLM_Full_Proj005", fn = function() run_fbms_method("BGNLM_Full_Tuned", td, cores = cores_arg, tuning_override = list(p_inter = 0.50, p_mod = 0.35, p_proj = 0.05, p_new = 0.10), fast_mode = smoke_mode)),
+        list(id = "SR_PySR", fn = function() run_sr_baseline("SR_PySR", td, strict_native = TRUE)),
+        list(id = "SR_Operon", fn = function() run_sr_baseline("SR_Operon", td, strict_native = TRUE))
       )
-      message(sprintf("[JOB 3] %s | seed=%d | %s (%s) -> F1=%.3f R2_ood=%.3f R2_traj=%.3f (%.1fs)",
-                      s_nm, sd, v$id, ev$Engine, ev$F1, ev$R2_ood, ev$R2_traj, el))
+      for (v in variants) {
+        t0 <- proc.time()[3]
+        fr <- run_safe_call(v$fn)
+        el <- as.numeric(proc.time()[3] - t0)
+        ev <- score_fit_full(fr, td, v$id)
+        job3_rows[[length(job3_rows) + 1L]] <- data.table(
+          System = s_nm, Seed = sd, Method = v$id, Engine = ev$Engine, Status = ev$Status,
+          F1 = ev$F1, FDR = ev$FDR, R2_ood = ev$R2_ood, R2_traj = ev$R2_traj,
+          OC = ev$OC, Runtime_s = el, Discovered_Atoms = ev$Discovered_Atoms
+        )
+        message(sprintf(
+          "[JOB 3] %s | seed=%d | %s (%s) -> F1=%.3f R2_ood=%.3f R2_traj=%.3f (%.1fs)",
+          s_nm, sd, v$id, ev$Engine, ev$F1, ev$R2_ood, ev$R2_traj, el
+        ))
+      }
     }
   }
-}
-fwrite(rbindlist(job3_rows, fill = TRUE), "results/ablation_native/job3_nonunit_scale_expressivity.csv")
-message("[OK] Saved results/ablation_native/job3_nonunit_scale_expressivity.csv")
+  fwrite(rbindlist(job3_rows, fill = TRUE), "results/ablation_native/job3_nonunit_scale_expressivity.csv")
+  message("[OK] Saved results/ablation_native/job3_nonunit_scale_expressivity.csv")
 }
 
 # ==============================================================================
@@ -8904,154 +9005,164 @@ message("[OK] Saved results/ablation_native/job3_nonunit_scale_expressivity.csv"
 #   4. real03_schmidt_pendulum & real05_yeast_glycolysis (zero pre-split leakage)
 # ==============================================================================
 if (has_job("4")) {
-message("=== [JOB 4] Zero-Leakage Authentic Real-World Empirical Benchmarks ===")
+  message("=== [JOB 4] Zero-Leakage Authentic Real-World Empirical Benchmarks ===")
 
-build_leakfree_auth_lynx_hare <- function(fold_id = 1L, seed = 1900L, diff_method = "sgolay_spline") {
-  df_raw <- read.csv("data/real_world/lynx_hare_annual_raw_1900_1920.csv", stringsAsFactors = FALSE)
-  t_raw <- as.numeric(df_raw$time) # 0..20
-  X_raw <- as.matrix(df_raw[, c("x1", "x2")])
-  n_raw <- nrow(df_raw) # 21
+  build_leakfree_auth_lynx_hare <- function(fold_id = 1L, seed = 1900L, diff_method = "sgolay_spline") {
+    df_raw <- read.csv("data/real_world/lynx_hare_annual_raw_1900_1920.csv", stringsAsFactors = FALSE)
+    t_raw <- as.numeric(df_raw$time) # 0..20
+    X_raw <- as.matrix(df_raw[, c("x1", "x2")])
+    n_raw <- nrow(df_raw) # 21
 
-  set.seed(seed)
-  frac <- 0.65 + 0.10 * ((fold_id - 1L) %% 5L) / 4.0
-  k_split <- max(12L, min(n_raw - 5L, floor(frac * n_raw)))
+    set.seed(seed)
+    frac <- 0.65 + 0.10 * ((fold_id - 1L) %% 5L) / 4.0
+    k_split <- max(12L, min(n_raw - 5L, floor(frac * n_raw)))
 
-  # Split RAW years FIRST, then spline-upsample strictly within train vs OOD
-  t_tr_raw <- t_raw[1:k_split]; X_tr_raw <- X_raw[1:k_split, , drop = FALSE]
-  t_ood_raw <- t_raw[(k_split + 1L):n_raw]; X_ood_raw <- X_raw[(k_split + 1L):n_raw, , drop = FALSE]
+    # Split RAW years FIRST, then spline-upsample strictly within train vs OOD
+    t_tr_raw <- t_raw[1:k_split]
+    X_tr_raw <- X_raw[1:k_split, , drop = FALSE]
+    t_ood_raw <- t_raw[(k_split + 1L):n_raw]
+    X_ood_raw <- X_raw[(k_split + 1L):n_raw, , drop = FALSE]
 
-  t_tr_grid <- seq(t_tr_raw[1], t_tr_raw[length(t_tr_raw)], by = 0.25)
-  t_ood_grid <- seq(t_ood_raw[1], t_ood_raw[length(t_ood_raw)], by = 0.25)
+    t_tr_grid <- seq(t_tr_raw[1], t_tr_raw[length(t_tr_raw)], by = 0.25)
+    t_ood_grid <- seq(t_ood_raw[1], t_ood_raw[length(t_ood_raw)], by = 0.25)
 
-  X_tr_dense <- cbind(
-    x1 = pmax(1.0, stats::spline(t_tr_raw, X_tr_raw[, 1], xout = t_tr_grid, method = "natural")$y),
-    x2 = pmax(1.0, stats::spline(t_tr_raw, X_tr_raw[, 2], xout = t_tr_grid, method = "natural")$y)
+    X_tr_dense <- cbind(
+      x1 = pmax(1.0, stats::spline(t_tr_raw, X_tr_raw[, 1], xout = t_tr_grid, method = "natural")$y),
+      x2 = pmax(1.0, stats::spline(t_tr_raw, X_tr_raw[, 2], xout = t_tr_grid, method = "natural")$y)
+    )
+    X_ood_dense <- cbind(
+      x1 = pmax(1.0, stats::spline(t_ood_raw, X_ood_raw[, 1], xout = t_ood_grid, method = "natural")$y),
+      x2 = pmax(1.0, stats::spline(t_ood_raw, X_ood_raw[, 2], xout = t_ood_grid, method = "natural")$y)
+    )
+
+    diff_fn <- if (diff_method == "sgolay_spline") estimate_derivatives_sgolay_spline else estimate_derivatives_tvregdiff
+    Y_tr_dense <- diff_fn(X_tr_dense, t_tr_grid)
+    Y_ood_dense <- diff_fn(X_ood_dense, t_ood_grid)
+
+    n_tr <- nrow(X_tr_dense)
+    idx_tr <- sort(sample(seq_len(n_tr), size = floor(0.85 * n_tr), replace = FALSE))
+    idx_in <- setdiff(seq_len(n_tr), idx_tr)
+    if (length(idx_in) < 3L) idx_in <- idx_tr
+
+    list(
+      system = list(
+        sys_id = 101L, id = "auth_lynx_hare_1900_1920", name = "Authentic 1900-1920 Lynx-Hare (Zero-Leakage)",
+        dim = 2L, state_names = c("x1", "x2"), feature_names = c("x1", "x2"), input_names = character(0),
+        ground_truth = list(c("x1", "x1*x2"), c("x2", "x1*x2")), oracle_extra_basis = character(0)
+      ),
+      seed = seed, N_train = length(idx_tr),
+      t_train = t_tr_grid[idx_tr], t_seq = t_tr_grid, X_seq = X_tr_dense,
+      X_train = X_tr_dense[idx_tr, , drop = FALSE], Y_train = Y_tr_dense[idx_tr, , drop = FALSE],
+      Y_train_clean = Y_tr_dense[idx_tr, , drop = FALSE],
+      X_test_in = X_tr_dense[idx_in, , drop = FALSE], Y_test_in_clean = Y_tr_dense[idx_in, , drop = FALSE],
+      Y_test_in_noisy = Y_tr_dense[idx_in, , drop = FALSE],
+      X_test_ood = X_ood_dense, Y_test_ood_clean = Y_ood_dense, Y_test_ood_noisy = Y_ood_dense,
+      rollout = list(times = t_ood_grid - t_ood_grid[1], X_true = X_ood_dense, x0 = X_ood_dense[1, ])
+    )
+  }
+
+  build_leakfree_csv_task <- function(csv_path, ds_id, ds_name, gt_list, oracle_extra = character(0), fold_id = 1L, seed = 2000L) {
+    df <- read.csv(csv_path, stringsAsFactors = FALSE)
+    times <- as.numeric(df$time)
+    X_states <- as.matrix(df[, c("x1", "x2")])
+    n_tot <- nrow(X_states)
+    set.seed(seed)
+    frac <- 0.65 + 0.10 * ((fold_id - 1L) %% 5L) / 4.0
+    n_tr_win <- max(14L, min(n_tot - 6L, floor(frac * n_tot)))
+    idx_pool <- seq_len(n_tr_win)
+    idx_ood <- seq(n_tr_win + 1L, n_tot)
+
+    # Differentiate train & OOD strictly separately
+    Y_tr_win <- estimate_derivatives_sgolay_spline(X_states[idx_pool, , drop = FALSE], times[idx_pool])
+    Y_ood_win <- estimate_derivatives_sgolay_spline(X_states[idx_ood, , drop = FALSE], times[idx_ood])
+
+    n_sub <- max(12L, floor(0.85 * length(idx_pool)))
+    idx_tr_loc <- sort(sample(seq_along(idx_pool), size = n_sub, replace = FALSE))
+    idx_in_loc <- setdiff(seq_along(idx_pool), idx_tr_loc)
+    if (length(idx_in_loc) < 3L) idx_in_loc <- idx_tr_loc
+
+    list(
+      system = list(
+        sys_id = 200L, id = ds_id, name = ds_name,
+        dim = 2L, state_names = c("x1", "x2"), feature_names = c("x1", "x2"), input_names = character(0),
+        ground_truth = gt_list, oracle_extra_basis = oracle_extra
+      ),
+      seed = seed, N_train = length(idx_tr_loc),
+      t_train = times[idx_pool[idx_tr_loc]], t_seq = times[idx_pool], X_seq = X_states[idx_pool, , drop = FALSE],
+      X_train = X_states[idx_pool[idx_tr_loc], , drop = FALSE], Y_train = Y_tr_win[idx_tr_loc, , drop = FALSE],
+      Y_train_clean = Y_tr_win[idx_tr_loc, , drop = FALSE],
+      X_test_in = X_states[idx_pool[idx_in_loc], , drop = FALSE],
+      Y_test_in_clean = Y_tr_win[idx_in_loc, , drop = FALSE], Y_test_in_noisy = Y_tr_win[idx_in_loc, , drop = FALSE],
+      X_test_ood = X_states[idx_ood, , drop = FALSE], Y_test_ood_clean = Y_ood_win, Y_test_ood_noisy = Y_ood_win,
+      rollout = list(times = times[idx_ood] - times[idx_ood[1]], X_true = X_states[idx_ood, , drop = FALSE], x0 = X_states[idx_ood[1], ])
+    )
+  }
+
+  j4_folds <- if (smoke_mode) 1L else 1:3
+  j4_methods <- c(
+    "BGNLM_Full_Tuned", "SINDy_STLSQ_Poly", "UQ_SINDy_Poly",
+    "UQ_SINDy_Bayes_Poly", "WSINDy_Poly", "SR_PySR", "SR_Operon"
   )
-  X_ood_dense <- cbind(
-    x1 = pmax(1.0, stats::spline(t_ood_raw, X_ood_raw[, 1], xout = t_ood_grid, method = "natural")$y),
-    x2 = pmax(1.0, stats::spline(t_ood_raw, X_ood_raw[, 2], xout = t_ood_grid, method = "natural")$y)
-  )
+  job4_rows <- list()
 
-  diff_fn <- if (diff_method == "sgolay_spline") estimate_derivatives_sgolay_spline else estimate_derivatives_tvregdiff
-  Y_tr_dense <- diff_fn(X_tr_dense, t_tr_grid)
-  Y_ood_dense <- diff_fn(X_ood_dense, t_ood_grid)
-
-  n_tr <- nrow(X_tr_dense)
-  idx_tr <- sort(sample(seq_len(n_tr), size = floor(0.85 * n_tr), replace = FALSE))
-  idx_in <- setdiff(seq_len(n_tr), idx_tr)
-  if (length(idx_in) < 3L) idx_in <- idx_tr
-
-  list(
-    system = list(
-      sys_id = 101L, id = "auth_lynx_hare_1900_1920", name = "Authentic 1900-1920 Lynx-Hare (Zero-Leakage)",
-      dim = 2L, state_names = c("x1", "x2"), feature_names = c("x1", "x2"), input_names = character(0),
-      ground_truth = list(c("x1", "x1*x2"), c("x2", "x1*x2")), oracle_extra_basis = character(0)
-    ),
-    seed = seed, N_train = length(idx_tr),
-    t_train = t_tr_grid[idx_tr], t_seq = t_tr_grid, X_seq = X_tr_dense,
-    X_train = X_tr_dense[idx_tr, , drop = FALSE], Y_train = Y_tr_dense[idx_tr, , drop = FALSE],
-    Y_train_clean = Y_tr_dense[idx_tr, , drop = FALSE],
-    X_test_in = X_tr_dense[idx_in, , drop = FALSE], Y_test_in_clean = Y_tr_dense[idx_in, , drop = FALSE],
-    Y_test_in_noisy = Y_tr_dense[idx_in, , drop = FALSE],
-    X_test_ood = X_ood_dense, Y_test_ood_clean = Y_ood_dense, Y_test_ood_noisy = Y_ood_dense,
-    rollout = list(times = t_ood_grid - t_ood_grid[1], X_true = X_ood_dense, x0 = X_ood_dense[1, ])
-  )
-}
-
-build_leakfree_csv_task <- function(csv_path, ds_id, ds_name, gt_list, oracle_extra = character(0), fold_id = 1L, seed = 2000L) {
-  df <- read.csv(csv_path, stringsAsFactors = FALSE)
-  times <- as.numeric(df$time)
-  X_states <- as.matrix(df[, c("x1", "x2")])
-  n_tot <- nrow(X_states)
-  set.seed(seed)
-  frac <- 0.65 + 0.10 * ((fold_id - 1L) %% 5L) / 4.0
-  n_tr_win <- max(14L, min(n_tot - 6L, floor(frac * n_tot)))
-  idx_pool <- seq_len(n_tr_win)
-  idx_ood <- seq(n_tr_win + 1L, n_tot)
-
-  # Differentiate train & OOD strictly separately
-  Y_tr_win <- estimate_derivatives_sgolay_spline(X_states[idx_pool, , drop = FALSE], times[idx_pool])
-  Y_ood_win <- estimate_derivatives_sgolay_spline(X_states[idx_ood, , drop = FALSE], times[idx_ood])
-
-  n_sub <- max(12L, floor(0.85 * length(idx_pool)))
-  idx_tr_loc <- sort(sample(seq_along(idx_pool), size = n_sub, replace = FALSE))
-  idx_in_loc <- setdiff(seq_along(idx_pool), idx_tr_loc)
-  if (length(idx_in_loc) < 3L) idx_in_loc <- idx_tr_loc
-
-  list(
-    system = list(
-      sys_id = 200L, id = ds_id, name = ds_name,
-      dim = 2L, state_names = c("x1", "x2"), feature_names = c("x1", "x2"), input_names = character(0),
-      ground_truth = gt_list, oracle_extra_basis = oracle_extra
-    ),
-    seed = seed, N_train = length(idx_tr_loc),
-    t_train = times[idx_pool[idx_tr_loc]], t_seq = times[idx_pool], X_seq = X_states[idx_pool, , drop = FALSE],
-    X_train = X_states[idx_pool[idx_tr_loc], , drop = FALSE], Y_train = Y_tr_win[idx_tr_loc, , drop = FALSE],
-    Y_train_clean = Y_tr_win[idx_tr_loc, , drop = FALSE],
-    X_test_in = X_states[idx_pool[idx_in_loc], , drop = FALSE],
-    Y_test_in_clean = Y_tr_win[idx_in_loc, , drop = FALSE], Y_test_in_noisy = Y_tr_win[idx_in_loc, , drop = FALSE],
-    X_test_ood = X_states[idx_ood, , drop = FALSE], Y_test_ood_clean = Y_ood_win, Y_test_ood_noisy = Y_ood_win,
-    rollout = list(times = times[idx_ood] - times[idx_ood[1]], X_true = X_states[idx_ood, , drop = FALSE], x0 = X_states[idx_ood[1], ])
-  )
-}
-
-j4_folds <- if (smoke_mode) 1L else 1:3
-j4_methods <- c(
-  "BGNLM_Full_Tuned", "SINDy_STLSQ_Poly", "UQ_SINDy_Poly",
-  "UQ_SINDy_Bayes_Poly", "WSINDy_Poly", "SR_PySR", "SR_Operon"
-)
-job4_rows <- list()
-
-dispatch_j4 <- function(mid, td) {
-  if (mid == "BGNLM_Full_Tuned") {
-    run_fbms_method(mid, td, cores = cores_arg, fast_mode = smoke_mode)
-  } else if (mid %in% c("SINDy_STLSQ_Poly", "UQ_SINDy_Poly")) {
-    run_sindy_baseline(mid, td, n_boot = if (smoke_mode) 25L else 80L)
-  } else if (mid == "UQ_SINDy_Bayes_Poly") {
-    run_uq_sindy_bayes(td, dict_type = "poly")
-  } else if (mid == "WSINDy_Poly") {
-    run_wsindy_baseline(td, dict_type = "poly")
-  } else if (mid %in% c("SR_PySR", "SR_Operon")) {
-    run_sr_baseline(mid, td, strict_native = TRUE)
-  } else stop("Unknown method: ", mid)
-}
-
-j4_datasets <- c("auth_lynx_hare", "auth_huffaker_1963", "auth_gause_mixture", "real03_schmidt_pendulum", "real05_yeast_glycolysis")
-
-for (ds in j4_datasets) {
-  for (fid in j4_folds) {
-    td <- if (ds == "auth_lynx_hare") {
-      build_leakfree_auth_lynx_hare(fold_id = fid, seed = 1900L + fid)
-    } else if (ds == "auth_huffaker_1963") {
-      build_leakfree_csv_task("data/real_world/huffaker_predator_prey_authentic.csv",
-        "auth_huffaker_1963", "Authentic Huffaker 1963 Mite Predator-Prey",
-        list(c("x1", "x1*x2"), c("x2", "x1*x2")), fold_id = fid, seed = 1963L + fid)
-    } else if (ds == "auth_gause_mixture") {
-      build_leakfree_csv_task("data/real_world/gause_paramecium_mixture_authentic.csv",
-        "auth_gause_mixture", "Authentic Gause 1934 Paramecium Competition",
-        list(c("x1", "x1^2", "x1*x2"), c("x2", "x2^2", "x1*x2")), fold_id = fid, seed = 1934L + fid)
+  dispatch_j4 <- function(mid, td) {
+    if (mid == "BGNLM_Full_Tuned") {
+      run_fbms_method(mid, td, cores = cores_arg, fast_mode = smoke_mode)
+    } else if (mid %in% c("SINDy_STLSQ_Poly", "UQ_SINDy_Poly")) {
+      run_sindy_baseline(mid, td, n_boot = if (smoke_mode) 25L else 80L)
+    } else if (mid == "UQ_SINDy_Bayes_Poly") {
+      run_uq_sindy_bayes(td, dict_type = "poly")
+    } else if (mid == "WSINDy_Poly") {
+      run_wsindy_baseline(td, dict_type = "poly")
+    } else if (mid %in% c("SR_PySR", "SR_Operon")) {
+      run_sr_baseline(mid, td, strict_native = TRUE)
     } else {
-      generate_real_task_data(ds, diff_method = "sgolay_spline", fold_id = fid, seed = 5000L + fid)
-    }
-
-    for (mid in j4_methods) {
-      t0 <- proc.time()[3]
-      fr <- run_safe_call(function() dispatch_j4(mid, td))
-      el <- as.numeric(proc.time()[3] - t0)
-      ev <- score_fit_full(fr, td, mid)
-      job4_rows[[length(job4_rows) + 1L]] <- data.table(
-        Dataset = ds, Fold_ID = fid, Method = mid, Engine = ev$Engine, Status = ev$Status,
-        F1 = ev$F1, TPR = ev$TPR, FDR = ev$FDR, OC = ev$OC,
-        R2_ood = ev$R2_ood, R2_traj = ev$R2_traj, Coverage_95_ood = ev$Coverage_95_ood,
-        Runtime_s = el, Discovered_Atoms = ev$Discovered_Atoms
-      )
-      message(sprintf("[JOB 4] %s fold=%d | %s (%s) -> F1=%.3f FDR=%.3f R2_traj=%.3f (%.1fs)",
-                      ds, fid, mid, ev$Engine, ev$F1, ifelse(is.na(ev$FDR), -1, ev$FDR), ev$R2_traj, el))
+      stop("Unknown method: ", mid)
     }
   }
-}
-fwrite(rbindlist(job4_rows, fill = TRUE), "results/ablation_native/job4_authentic_real_world.csv")
-message("[OK] Saved results/ablation_native/job4_authentic_real_world.csv")
+
+  j4_datasets <- c("auth_lynx_hare", "auth_huffaker_1963", "auth_gause_mixture", "real03_schmidt_pendulum", "real05_yeast_glycolysis")
+
+  for (ds in j4_datasets) {
+    for (fid in j4_folds) {
+      td <- if (ds == "auth_lynx_hare") {
+        build_leakfree_auth_lynx_hare(fold_id = fid, seed = 1900L + fid)
+      } else if (ds == "auth_huffaker_1963") {
+        build_leakfree_csv_task("data/real_world/huffaker_predator_prey_authentic.csv",
+          "auth_huffaker_1963", "Authentic Huffaker 1963 Mite Predator-Prey",
+          list(c("x1", "x1*x2"), c("x2", "x1*x2")),
+          fold_id = fid, seed = 1963L + fid
+        )
+      } else if (ds == "auth_gause_mixture") {
+        build_leakfree_csv_task("data/real_world/gause_paramecium_mixture_authentic.csv",
+          "auth_gause_mixture", "Authentic Gause 1934 Paramecium Competition",
+          list(c("x1", "x1^2", "x1*x2"), c("x2", "x2^2", "x1*x2")),
+          fold_id = fid, seed = 1934L + fid
+        )
+      } else {
+        generate_real_task_data(ds, diff_method = "sgolay_spline", fold_id = fid, seed = 5000L + fid)
+      }
+
+      for (mid in j4_methods) {
+        t0 <- proc.time()[3]
+        fr <- run_safe_call(function() dispatch_j4(mid, td))
+        el <- as.numeric(proc.time()[3] - t0)
+        ev <- score_fit_full(fr, td, mid)
+        job4_rows[[length(job4_rows) + 1L]] <- data.table(
+          Dataset = ds, Fold_ID = fid, Method = mid, Engine = ev$Engine, Status = ev$Status,
+          F1 = ev$F1, TPR = ev$TPR, FDR = ev$FDR, OC = ev$OC,
+          R2_ood = ev$R2_ood, R2_traj = ev$R2_traj, Coverage_95_ood = ev$Coverage_95_ood,
+          Runtime_s = el, Discovered_Atoms = ev$Discovered_Atoms
+        )
+        message(sprintf(
+          "[JOB 4] %s fold=%d | %s (%s) -> F1=%.3f FDR=%.3f R2_traj=%.3f (%.1fs)",
+          ds, fid, mid, ev$Engine, ev$F1, ifelse(is.na(ev$FDR), -1, ev$FDR), ev$R2_traj, el
+        ))
+      }
+    }
+  }
+  fwrite(rbindlist(job4_rows, fill = TRUE), "results/ablation_native/job4_authentic_real_world.csv")
+  message("[OK] Saved results/ablation_native/job4_authentic_real_world.csv")
 }
 message("=== ALL REQUESTED ABLATION JOBS COMPLETE ===")
 
