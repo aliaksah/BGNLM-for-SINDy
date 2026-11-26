@@ -14,4 +14,3 @@ P_generations: 12
 N_mcmc: 500
 runs: 6
 transforms_tier: transforms_extended
-energy_prune_tol: 0.025

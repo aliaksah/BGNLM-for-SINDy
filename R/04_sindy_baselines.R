@@ -4,12 +4,14 @@
 # ==============================================================================
 
 if (!exists("build_poly_library", mode = "function")) {
-  if (file.exists("R/02_basis_builders.R")) source("R/02_basis_builders.R")
-  else if (file.exists("../../R/02_basis_builders.R")) source("../../R/02_basis_builders.R")
+  if (file.exists("R/02_basis_builders.R")) {
+    source("R/02_basis_builders.R")
+  } else if (file.exists("../../R/02_basis_builders.R")) source("../../R/02_basis_builders.R")
 }
 if (!exists("extract_canonical_atoms", mode = "function")) {
-  if (file.exists("R/05_symbolic_canonicalize.R")) source("R/05_symbolic_canonicalize.R")
-  else if (file.exists("../../R/05_symbolic_canonicalize.R")) source("../../R/05_symbolic_canonicalize.R")
+  if (file.exists("R/05_symbolic_canonicalize.R")) {
+    source("R/05_symbolic_canonicalize.R")
+  } else if (file.exists("../../R/05_symbolic_canonicalize.R")) source("../../R/05_symbolic_canonicalize.R")
 }
 
 #' Fit Sequential Thresholded Least Squares (STLSQ) on standardized design matrix Phi
@@ -114,13 +116,15 @@ build_sindy_pi_rational_library <- function(X) {
   }
 
   for (i in seq_len(m)) {
-    xi <- X[, i]; ni <- col_names[i]
+    xi <- X[, i]
+    ni <- col_names[i]
     add_rat(1.0 / (1.0 + abs(xi)), paste0("1/(1+", ni, ")"))
     add_rat(xi / (1.0 + abs(xi)), paste0(ni, "/(1+", ni, ")"))
     add_rat(1.0 / (1.0 + xi^2), paste0("1/(1+", ni, "^2)"))
     add_rat((xi^2) / (1.0 + xi^2), paste0(ni, "^2/(1+", ni, "^2)"))
     for (j in seq_len(m)) {
-      xj <- X[, j]; nj <- col_names[j]
+      xj <- X[, j]
+      nj <- col_names[j]
       if (i != j) {
         add_rat((xi * xj) / (1.0 + abs(xi)), paste0(ni, "*", nj, "/(1+", ni, ")"))
         add_rat((xi * (xj^2)) / (1.0 + xj^2), paste0(ni, "*", nj, "^2/(1+", nj, "^2)"))
@@ -143,8 +147,7 @@ run_sindy_baseline <- function(
     "SINDy_PI_Rational"
   ),
   task_data,
-  n_boot = 80L,
-  prune_tol = 0.0
+  n_boot = 80L
 ) {
   method_id <- match.arg(method_id)
   X_tr_raw <- as.matrix(task_data$X_train)
@@ -187,25 +190,6 @@ run_sindy_baseline <- function(
 
     if (method_id %in% c("SINDy_STLSQ_Oracle", "SINDy_STLSQ_Poly", "SINDy_PI_Rational")) {
       fit_j <- cv_stlsq_fit(Phi_tr, yj)
-      active_idx <- fit_j$active
-      if (prune_tol > 0.0 && length(active_idx) > 0L) {
-        y_norm <- max(sqrt(sum(yj^2)), 1e-12)
-        rel_en <- vapply(active_idx, function(k_idx) {
-          abs(fit_j$coefs[k_idx]) * sqrt(sum(Phi_tr[, k_idx]^2)) / y_norm
-        }, numeric(1))
-        active_idx <- active_idx[rel_en >= prune_tol]
-        if (length(active_idx) > 0L) {
-          ols_p <- lm.fit(x = cbind(1.0, Phi_tr[, active_idx, drop = FALSE]), y = yj)
-          b_p <- ols_p$coefficients; b_p[is.na(b_p)] <- 0.0
-          fit_j$intercept <- b_p[1]
-          fit_j$coefs <- setNames(rep(0.0, p), cand_names)
-          fit_j$coefs[active_idx] <- b_p[-1]
-        } else {
-          fit_j$intercept <- mean(yj)
-          fit_j$coefs <- setNames(rep(0.0, p), cand_names)
-        }
-        fit_j$active <- active_idx
-      }
       active_names <- cand_names[fit_j$active]
       discovered[[j]] <- extract_canonical_atoms(active_names)
       pip_vec <- as.numeric(cand_names %in% active_names)
@@ -217,10 +201,11 @@ run_sindy_baseline <- function(
       pred_ood[, j] <- fit_j$intercept + as.numeric(Phi_ood %*% fit_j$coefs)
 
       # Point-estimate methods have no calibrated Bayesian credible intervals (NA or residual plug-in)
-      lower_in[, j] <- NA_real_; upper_in[, j] <- NA_real_
-      lower_ood[, j] <- NA_real_; upper_ood[, j] <- NA_real_
+      lower_in[, j] <- NA_real_
+      upper_in[, j] <- NA_real_
+      lower_ood[, j] <- NA_real_
+      upper_ood[, j] <- NA_real_
       eq_models[[j]] <- list(intercept = fit_j$intercept, coefs = fit_j$coefs)
-
     } else {
       # UQ_SINDy (Ensemble / Spike-and-Slab Bagging SINDy: Fasel et al. 2022 / Hirsh et al. 2022)
       fit_base <- cv_stlsq_fit(Phi_tr, yj)
@@ -258,9 +243,11 @@ run_sindy_baseline <- function(
       if (length(mpm_idx) > 0L) {
         X_act <- cbind(1.0, Phi_tr[, mpm_idx, drop = FALSE])
         ols <- lm.fit(x = X_act, y = yj)
-        b_ols <- ols$coefficients; b_ols[is.na(b_ols)] <- 0.0
+        b_ols <- ols$coefficients
+        b_ols[is.na(b_ols)] <- 0.0
         inter_mpm <- b_ols[1]
-        coefs_mpm <- rep(0.0, p); names(coefs_mpm) <- cand_names
+        coefs_mpm <- rep(0.0, p)
+        names(coefs_mpm) <- cand_names
         coefs_mpm[mpm_idx] <- b_ols[-1]
         sigma_res <- sqrt(mean(ols$residuals^2))
       } else {
@@ -316,10 +303,9 @@ run_sindy_baseline <- function(
 
 #' True Bayesian Spike-and-Slab / BIC Model Averaging SINDy Baseline via BAS::bas.lm
 run_uq_sindy_bayes <- function(
-  task_data,
-  dict_type = c("poly", "oracle"),
-  mcmc_iters = 5000L
-) {
+    task_data,
+    dict_type = c("poly", "oracle"),
+    mcmc_iters = 5000L) {
   dict_type <- match.arg(dict_type)
   method_id <- if (dict_type == "oracle") "UQ_SINDy_Bayes_Oracle" else "UQ_SINDy_Bayes_Poly"
 
@@ -345,9 +331,12 @@ run_uq_sindy_bayes <- function(
   p <- ncol(Phi_tr)
   safe_names <- paste0("b", seq_len(p))
 
-  df_tr <- as.data.frame(Phi_tr); colnames(df_tr) <- safe_names
-  df_in <- as.data.frame(Phi_in); colnames(df_in) <- safe_names
-  df_ood <- as.data.frame(Phi_ood); colnames(df_ood) <- safe_names
+  df_tr <- as.data.frame(Phi_tr)
+  colnames(df_tr) <- safe_names
+  df_in <- as.data.frame(Phi_in)
+  colnames(df_in) <- safe_names
+  df_ood <- as.data.frame(Phi_ood)
+  colnames(df_ood) <- safe_names
 
   discovered <- vector("list", m)
   pip_list <- vector("list", m)
@@ -409,7 +398,8 @@ run_uq_sindy_bayes <- function(
     # OLS refit on MPM support for clean autonomous rollout RHS
     if (length(mpm_idx) > 0L) {
       ols_j <- lm.fit(x = cbind(1.0, Phi_tr[, mpm_idx, drop = FALSE]), y = yj)
-      b_j <- ols_j$coefficients; b_j[is.na(b_j)] <- 0.0
+      b_j <- ols_j$coefficients
+      b_j[is.na(b_j)] <- 0.0
       inter_j <- b_j[1]
       coefs_j <- setNames(rep(0.0, p), cand_names)
       coefs_j[mpm_idx] <- b_j[-1]
@@ -448,11 +438,10 @@ run_uq_sindy_bayes <- function(
 #' Weak-Form Integral SINDy Baseline (WSINDy; Messenger & Bortz 2021)
 #' Eliminates numerical state differentiation via integration by parts against compact C^p test functions.
 run_wsindy_baseline <- function(
-  task_data,
-  dict_type = c("poly", "oracle"),
-  p_smooth = 4L,
-  n_test_funcs = 60L
-) {
+    task_data,
+    dict_type = c("poly", "oracle"),
+    p_smooth = 4L,
+    n_test_funcs = 60L) {
   dict_type <- match.arg(dict_type)
   method_id <- if (dict_type == "oracle") "WSINDy_Oracle" else "WSINDy_Poly"
 
@@ -580,4 +569,3 @@ run_wsindy_baseline <- function(
     predict_rhs_fn = predict_rhs_fn
   )
 }
-

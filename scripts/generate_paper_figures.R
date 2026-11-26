@@ -97,11 +97,11 @@ sub_s[, Group_Name := factor(group_labels[SystemGroup], levels = unname(group_la
 df_n <- sub_s[, .(Mean_F1 = mean(F1, na.rm = TRUE)), by = .(Group_Name, Method_Name, SampleSize)]
 df_noise <- sub_s[, .(Mean_F1 = mean(F1, na.rm = TRUE)), by = .(Group_Name, Method_Name, Noise)]
 
-# Optional scaled-budget large-N points from Job 1b
+# Optional scaled-budget large-N points from Job 1
 scaled_pts <- NULL
-if (file.exists("results/ablation_native/job1_mpm_pruning_and_largeN.csv")) {
-  j1 <- fread("results/ablation_native/job1_mpm_pruning_and_largeN.csv")
-  j1b <- j1[SubJob == "1b_LargeN" & Variant == "BGNLM_ScaledBudget_SqrtN"]
+if (file.exists("results/ablation_native/job1_largeN_scaling.csv")) {
+  j1 <- fread("results/ablation_native/job1_largeN_scaling.csv")
+  j1b <- j1[SubJob == "1_LargeN" & Variant == "BGNLM_ScaledBudget_SqrtN"]
   if (nrow(j1b) > 0L) {
     j1b[, Group_Name := factor(ifelse(System == "sys02_lorenz63", group_labels[["Group_A_Polynomial"]], group_labels[["Group_B_NonPolynomial"]]),
                                levels = unname(group_labels))]

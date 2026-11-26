@@ -81,8 +81,7 @@ get_tuned_bgnlm_config <- function(N_obs = 500L, p_cov = 3L) {
       P_generations = 15L,
       N_mcmc = 500L,
       runs = 6L,
-      transforms_tier = "transforms_extended",
-      energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     )
   }
 
@@ -120,8 +119,7 @@ get_tuned_bgnlm_config <- function(N_obs = 500L, p_cov = 3L) {
     P_generations = as.integer(cfg$P_generations),
     N_mcmc = as.integer(cfg$N_mcmc),
     runs = as.integer(cfg$runs),
-    transforms_tier = as.character(cfg$transforms_tier),
-    energy_prune_tol = if (!is.null(cfg$energy_prune_tol)) as.numeric(cfg$energy_prune_tol) else 0.025
+    transforms_tier = as.character(cfg$transforms_tier)
   )
 }
 
@@ -159,8 +157,7 @@ run_fbms_method <- function(
   task_data,
   cores = 2L,
   tuning_override = NULL,
-  fast_mode = FALSE,
-  prune_tol_override = NULL
+  fast_mode = FALSE
 ) {
   method_id <- match.arg(method_id)
   t_dicts <- register_fbms_transforms()
@@ -222,7 +219,6 @@ run_fbms_method <- function(
   }
 
   discovered_mpm <- vector("list", m)
-  discovered_mpm_raw <- vector("list", m)
   discovered_map <- vector("list", m)
   pip_list <- vector("list", m)
   eq_models <- vector("list", m)
@@ -265,7 +261,6 @@ run_fbms_method <- function(
         transforms = t_dicts$transforms_iwsm,
         verbose = FALSE
       ))
-      prune_tol <- 1e-4 # Untuned IWSM did not prune weak features
     } else if (method_id %in% c("BGNLM_Full_Tuned", "BGNLM_Hybrid_Poly")) {
       transforms_vec <- if (cfg$transforms_tier == "transforms_core") t_dicts$transforms_core else t_dicts$transforms_extended
       params <- FBMS::gen.params.gmjmcmc(ncol(X_tr_df))
@@ -295,7 +290,6 @@ run_fbms_method <- function(
         transforms = transforms_vec,
         verbose = FALSE
       ))
-      prune_tol <- cfg$energy_prune_tol
     } else {
       # Predefined-Basis BGLM via mjmcmc.parallel
       N_mcmc_bglm <- if (fast_mode) 400L else max(800L, cfg$N_mcmc)
@@ -314,7 +308,6 @@ run_fbms_method <- function(
         N = N_mcmc_bglm,
         verbose = FALSE
       ))
-      prune_tol <- cfg$energy_prune_tol
     }
 
     # Extract full PIP table with original column labels
@@ -336,39 +329,9 @@ run_fbms_method <- function(
       discovered_map[[j]] <- character(0)
     }
 
-    # Extract MPM features (PIP > 0.5)
+    # Extract Median Probability Model (MPM) features directly (PIP > 0.5)
     mpm_idx <- which(pips_all > 0.5)
-    mpm_raw_feats <- feat_strs_all[mpm_idx]
-    discovered_mpm_raw[[j]] <- extract_canonical_atoms(mpm_raw_feats)
-    if (!is.null(prune_tol_override)) {
-      prune_tol <- as.numeric(prune_tol_override)
-    }
-
-    # Evaluate selected MPM features on train/in/ood and refit posterior mode / OLS with energy pruning
-    if (length(mpm_raw_feats) > 0L) {
-      X_tr_named <- as.data.frame(X_tr); colnames(X_tr_named) <- orig_labels
-      Phi_mpm_tr <- sapply(mpm_raw_feats, function(fs) eval_fbms_feature_string(fs, X_tr_named))
-      if (!is.matrix(Phi_mpm_tr)) Phi_mpm_tr <- matrix(Phi_mpm_tr, nrow = nrow(X_tr_named))
-      colnames(Phi_mpm_tr) <- mpm_raw_feats
-
-      # Energy pruning of negligible MPM terms (skipped when prune_tol <= 0)
-      if (prune_tol > 0.0) {
-        fit_init <- lm.fit(x = cbind(1.0, Phi_mpm_tr), y = Y_tr[, j])
-        coefs_init <- fit_init$coefficients[-1]
-        coefs_init[is.na(coefs_init)] <- 0.0
-        y_norm <- max(sqrt(sum(Y_tr[, j]^2)), 1e-12)
-        rel_energy <- sapply(seq_along(mpm_raw_feats), function(k) {
-          abs(coefs_init[k]) * sqrt(sum(Phi_mpm_tr[, k]^2)) / y_norm
-        })
-        keep_k <- which(rel_energy >= prune_tol)
-        mpm_kept_feats <- mpm_raw_feats[keep_k]
-      } else {
-        mpm_kept_feats <- mpm_raw_feats
-      }
-    } else {
-      mpm_kept_feats <- character(0)
-    }
-
+    mpm_kept_feats <- feat_strs_all[mpm_idx]
     discovered_mpm[[j]] <- extract_canonical_atoms(mpm_kept_feats)
 
     # Fit final linear predictor on kept MPM features + compute BMA predictive intervals
@@ -484,7 +447,6 @@ run_fbms_method <- function(
   list(
     method_id = method_id,
     discovered = discovered_mpm,
-    discovered_raw = discovered_mpm_raw,
     discovered_map = discovered_map,
     pip_list = pip_list,
     pred_train = pred_train,

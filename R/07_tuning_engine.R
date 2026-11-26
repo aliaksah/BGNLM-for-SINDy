@@ -31,7 +31,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-1.0)",
       p_inter = 0.55, p_mod = 0.35, p_proj = 0.00, p_new = 0.10,
       pop_max = 20L, max_depth_D = 2L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_extended", energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     ),
     list(
       config_id = "C02_HyperGN_rN1_Algebraic",
@@ -42,7 +42,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-1.0)",
       p_inter = 0.55, p_mod = 0.35, p_proj = 0.00, p_new = 0.10,
       pop_max = 20L, max_depth_D = 2L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_extended", energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     ),
     list(
       config_id = "C03_Robust_tCCH_rN1_Algebraic",
@@ -53,7 +53,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-1.0)",
       p_inter = 0.55, p_mod = 0.35, p_proj = 0.00, p_new = 0.10,
       pop_max = 20L, max_depth_D = 2L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_extended", energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     ),
     list(
       config_id = "C04_JeffreysBIC_UnknownVar_rN1",
@@ -64,7 +64,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-1.0)",
       p_inter = 0.55, p_mod = 0.35, p_proj = 0.00, p_new = 0.10,
       pop_max = 20L, max_depth_D = 2L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_extended", energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     ),
     list(
       config_id = "C05_GPrior_rN15_StrongPenalty",
@@ -75,7 +75,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-1.5)",
       p_inter = 0.55, p_mod = 0.35, p_proj = 0.00, p_new = 0.10,
       pop_max = 25L, max_depth_D = 2L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_extended", energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     ),
     list(
       config_id = "C06_GPrior_rExp4_LowProj",
@@ -86,7 +86,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "exp(-4)",
       p_inter = 0.50, p_mod = 0.35, p_proj = 0.05, p_new = 0.10,
       pop_max = 20L, max_depth_D = 3L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_extended", energy_prune_tol = 0.025
+      transforms_tier = "transforms_extended"
     ),
     list(
       config_id = "C07_GPrior_HighProj_Abalation",
@@ -97,7 +97,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-0.5)",
       p_inter = 0.40, p_mod = 0.30, p_proj = 0.20, p_new = 0.10,
       pop_max = 15L, max_depth_D = 3L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_core", energy_prune_tol = 0.025
+      transforms_tier = "transforms_core"
     ),
     list(
       config_id = "C08_IWSM_Baseline_FixedVar1",
@@ -108,7 +108,7 @@ get_bgnlm_tuning_candidates <- function() {
       r_rule = "N^(-1.0)",
       p_inter = 0.40, p_mod = 0.40, p_proj = 0.10, p_new = 0.10,
       pop_max = 15L, max_depth_D = 5L, P_generations = 12L, N_mcmc = 500L, runs = 6L,
-      transforms_tier = "transforms_iwsm", energy_prune_tol = 1e-4
+      transforms_tier = "transforms_iwsm"
     )
   )
 }
