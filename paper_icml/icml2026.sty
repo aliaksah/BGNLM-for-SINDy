@@ -1,0 +1,124 @@
+% Official-compatible ICML 2026 two-column LaTeX style file
+% Provides standard ICML geometry (6.75in textwidth, 9.0in textheight, 0.25in columnsep),
+% Times typography, running headers, and [accepted] / anonymous review toggles.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{icml2026}[2026/01/01 ICML 2026 Conference Style]
+
+\IfFileExists{times.sty}{\RequirePackage{times}\renewcommand{\ttdefault}{cmtt}}{}
+\RequirePackage{fancyhdr}
+
+\newif\ificmlaccepted\icmlacceptedfalse
+\DeclareOption{accepted}{\icmlacceptedtrue}
+\DeclareOption{nohyperref}{}
+\ProcessOptions\relax
+
+% Page geometry (US Letter, 6.75in x 9.0in text area, two columns)
+\paperwidth=8.5in
+\paperheight=11in
+\pdfpagewidth=8.5in
+\pdfpageheight=11in
+
+\setlength{\textheight}{9.0in}
+\setlength{\textwidth}{6.75in}
+\setlength{\columnsep}{0.25in}
+\setlength{\oddsidemargin}{-0.125in}
+\setlength{\evensidemargin}{-0.125in}
+\setlength{\topmargin}{-0.375in}
+\setlength{\headheight}{12pt}
+\setlength{\headsep}{14pt}
+\setlength{\footskip}{24pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5.5pt plus 1pt minus 0.5pt}
+
+\twocolumn
+\flushbottom
+\sloppy
+
+\gdef\@icmltitlerunning{}
+\newcommand{\icmltitlerunning}[1]{\gdef\@icmltitlerunning{#1}}
+
+% Running header
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[C]{\small\textit{\@icmltitlerunning}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Title & Author storage
+\gdef\@icmltitle{}
+\newcommand{\icmltitle}[1]{%
+  \gdef\@icmltitle{#1}%
+  \hsize\textwidth
+  \linewidth\hsize
+  \toptitlebar
+  {\centering\Large\bfseries #1\par}%
+  \bottomtitlebar
+}
+
+\newcommand{\toptitlebar}{\hrule height 1.5pt \vskip 0.16in}
+\newcommand{\bottomtitlebar}{\vskip 0.16in \hrule height 1.0pt \vskip 0.14in}
+
+\def\@icmlauthors{}
+\def\@icmlaffils{}
+\def\@icmlcorr{}
+
+\newcommand{\icmlsetsymbol}[2]{}
+\newcommand{\icmlEqualContribution}{}
+
+\newcommand{\icmlauthor}[2]{%
+  \ifx\@icmlauthors\empty
+    \gdef\@icmlauthors{\textbf{#1}\textsuperscript{#2}}%
+  \else
+    \g@addto@macro\@icmlauthors{, \textbf{#1}\textsuperscript{#2}}%
+  \fi
+}
+
+\newcommand{\icmlaffiliation}[2]{%
+  \ifx\@icmlaffils\empty
+    \gdef\@icmlaffils{\textsuperscript{#1}#2}%
+  \else
+    \g@addto@macro\@icmlaffils{ \quad \textsuperscript{#1}#2}%
+  \fi
+}
+
+\newcommand{\icmlcorrespondingauthor}[2]{%
+  \gdef\@icmlcorr{Correspondence to: #1 $<$#2$>$.}%
+}
+
+\newenvironment{icmlauthorlist}{\par\centering}{\par}
+
+\newcommand{\printAffiliationsAndNotice}[1][]{%
+  \ificmlaccepted
+    {\centering \@icmlauthors \par}%
+    \vskip 0.06in
+    {\centering\small \@icmlaffils \par}%
+    \ifx\@icmlcorr\empty\else
+      \vskip 0.04in
+      {\centering\footnotesize \@icmlcorr \par}%
+    \fi
+    \if\relax\detokenize{#1}\relax\else
+      \vskip 0.04in
+      {\centering\footnotesize #1 \par}%
+    \fi
+  \else
+    {\centering \textbf{Anonymous Author(s)} \\ \small Under review as a conference paper at ICML 2026 \par}%
+  \fi
+  \vskip 0.14in
+}
+
+% Section formatting compatible with ICML conventions
+\renewcommand{\section}{\@startsection{section}{1}{\z@}{-1.8ex plus -0.5ex minus -0.2ex}{0.9ex plus 0.2ex}{\large\bfseries\raggedright}}
+\renewcommand{\subsection}{\@startsection{subsection}{2}{\z@}{-1.4ex plus -0.4ex minus -0.2ex}{0.6ex plus 0.2ex}{\normalsize\bfseries\raggedright}}
+\renewcommand{\subsubsection}{\@startsection{subsubsection}{3}{\z@}{-1.0ex plus -0.3ex minus -0.1ex}{0.4ex plus 0.1ex}{\normalsize\itshape\raggedright}}
+
+\renewenvironment{abstract}{%
+  \centerline{\large\bfseries Abstract}%
+  \vspace{-0.4ex}%
+  \begin{quote}\small
+}{%
+  \end{quote}%
+  \vskip 0.1in
+}
+
+\endinput

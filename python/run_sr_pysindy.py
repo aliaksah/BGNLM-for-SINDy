@@ -11,6 +11,7 @@ import argparse
 import json
 import math
 import os
+import re
 import shutil
 import sys
 import warnings
@@ -100,8 +101,11 @@ def extract_native_terms_and_coefs(expr_str: str, col_names: list[str]) -> tuple
         return [], 0.0, {}
     try:
         local_dict = {nm: sp.Symbol(nm, real=True) for nm in col_names}
+        for i_c, nm in enumerate(col_names):
+            local_dict[f"X{i_c + 1}"] = sp.Symbol(nm, real=True)
         local_dict["square"] = lambda z: z ** 2
         local_dict["cube"] = lambda z: z ** 3
+        local_dict["sqrtabs"] = lambda z: sp.sqrt(sp.Abs(z))
         expr = sp.sympify(expr_str, locals=local_dict)
         expanded = sp.expand(expr)
         terms = sp.Add.make_args(expanded)
@@ -271,7 +275,7 @@ def fit_evolutionary_pareto_sr(
         return supp, coefs, inter
 
 
-def run_sr_task(method_id: str, data_payload: dict) -> dict:
+def run_sr_task(method_id: str, data_payload: dict, strict_native: bool = False) -> dict:
     X_tr = np.asarray(data_payload["X_train"], dtype=float)
     Y_tr = np.asarray(data_payload["Y_train"], dtype=float)
     X_in = np.asarray(data_payload["X_test_in"], dtype=float)
@@ -296,6 +300,7 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
     discovered = []
     coefs_out = []
     intercepts_out = []
+    sympy_exprs = []
     pred_tr = np.zeros((X_tr.shape[0], m))
     pred_in = np.zeros((X_in.shape[0], m))
     pred_ood = np.zeros((X_ood.shape[0], m))
@@ -303,7 +308,6 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
     use_native_pysr = (
         method_id == "SR_PySR"
         and os.environ.get("PYSR_USE_JULIA", "0") == "1"
-        and shutil.which("julia") is not None
     )
     use_native_operon = (
         method_id == "SR_Operon"
@@ -314,6 +318,8 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
         try:
             from pysr import PySRRegressor  # noqa: F401
         except Exception as exc:
+            if strict_native:
+                raise RuntimeError(f"PySR import failed in strict_native mode: {exc}")
             print(f"[WARN] PySR import failed ({exc}); falling back to static pool.", file=sys.stderr)
             use_native_pysr = False
 
@@ -321,8 +327,13 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
         try:
             from pyoperon.sklearn import SymbolicRegressor  # noqa: F401
         except Exception as exc:
+            if strict_native:
+                raise RuntimeError(f"pyoperon import failed in strict_native mode: {exc}")
             print(f"[WARN] pyoperon import failed ({exc}); falling back to static pool.", file=sys.stderr)
             use_native_operon = False
+
+    if strict_native and not (use_native_pysr or use_native_operon):
+        raise RuntimeError(f"strict_native requested for {method_id}, but native backend was not enabled.")
 
     engine_used = (
         "native_pysr" if use_native_pysr else ("native_pyoperon" if use_native_operon else "fallback_pool")
@@ -336,7 +347,7 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
                 from pysr import PySRRegressor
 
                 model = PySRRegressor(
-                    niterations=30,
+                    niterations=int(os.environ.get("PYSR_NITER", "30")),
                     binary_operators=["+", "-", "*", "/"],
                     unary_operators=["sin", "cos", "exp", "square", "cube"],
                     maxsize=25,
@@ -351,6 +362,7 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
                 sym_expr = str(model.sympy())
                 atoms_j, inter_j, coef_map_j = extract_native_terms_and_coefs(sym_expr, col_names)
                 discovered.append(atoms_j)
+                sympy_exprs.append(sym_expr)
                 pred_tr[:, j] = model.predict(X_tr)
                 pred_in[:, j] = model.predict(X_in)
                 pred_ood[:, j] = model.predict(X_ood)
@@ -358,6 +370,8 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
                 coefs_out.append(coef_map_j)
                 ran_native = True
             except Exception as exc:
+                if strict_native:
+                    raise RuntimeError(f"Native PySR fit failed on eq {j+1}: {exc}")
                 print(f"[WARN] Native PySR fit failed on eq {j+1} ({exc}); falling back to pool.", file=sys.stderr)
                 engine_used = "fallback_pool"
         elif use_native_operon:
@@ -365,8 +379,9 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
                 from pyoperon.sklearn import SymbolicRegressor
 
                 reg = SymbolicRegressor(
-                    allowed_symbols="add,sub,mul,div,sin,cos,exp,square,cube,constant,variable",
+                    allowed_symbols="add,sub,mul,div,sin,cos,exp,square,pow,sqrtabs,constant,variable",
                     optimizer="lm",
+                    optimizer_iterations=5,
                     max_length=25,
                     max_depth=4,
                     generations=60,
@@ -376,9 +391,14 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
                     random_state=seed + j,
                 )
                 reg.fit(X_tr, yj)
-                expr_str = reg.get_model_string(reg.model_, names=col_names)
+                expr_raw = reg.get_model_string(reg.model_, precision=8)
+                expr_str = expr_raw
+                for i_c, nm in enumerate(col_names):
+                    expr_str = re.sub(rf"\bX{i_c + 1}\b", nm, expr_str)
+                expr_str = re.sub(r"sqrt\(abs\(([^)]+)\)\)", r"sqrt(abs(\1))", expr_str)
                 atoms_j, inter_j, coef_map_j = extract_native_terms_and_coefs(expr_str, col_names)
                 discovered.append(atoms_j)
+                sympy_exprs.append(expr_str)
                 pred_tr[:, j] = reg.predict(X_tr)
                 pred_in[:, j] = reg.predict(X_in)
                 pred_ood[:, j] = reg.predict(X_ood)
@@ -386,6 +406,8 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
                 coefs_out.append(coef_map_j)
                 ran_native = True
             except Exception as exc:
+                if strict_native:
+                    raise RuntimeError(f"Native pyoperon fit failed on eq {j+1}: {exc}")
                 print(f"[WARN] Native pyoperon fit failed on eq {j+1} ({exc}); falling back to pool.", file=sys.stderr)
                 engine_used = "fallback_pool"
         if not ran_native:
@@ -423,11 +445,14 @@ def run_sr_task(method_id: str, data_payload: dict) -> dict:
             discovered.append(atoms_j)
             intercepts_out.append(inter_final)
             coefs_out.append(coef_dict)
+            expr_parts = [f"{inter_final:.8g}"] + [f"({val:.8g})*({k})" for k, val in coef_dict.items()]
+            sympy_exprs.append(" + ".join(expr_parts))
 
     return {
         "method_id": method_id,
         "engine": engine_used,
         "discovered": discovered,
+        "sympy_exprs": sympy_exprs,
         "intercepts": intercepts_out,
         "coefs": coefs_out,
         "pred_train": pred_tr.tolist(),
@@ -440,12 +465,13 @@ def main():
     parser = argparse.ArgumentParser(description="Run Symbolic Regression baselines (PySR / PyOperon)")
     parser.add_argument("--input", required=True, help="Input JSON path")
     parser.add_argument("--output", required=True, help="Output JSON path")
+    parser.add_argument("--strict_native", action="store_true", help="Fail explicitly if native engine cannot run")
     args = parser.parse_args()
 
     with open(args.input, "r", encoding="utf-8") as f:
         payload = json.load(f)
 
-    res = run_sr_task(payload["method_id"], payload)
+    res = run_sr_task(payload["method_id"], payload, strict_native=args.strict_native)
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(res, f)
 

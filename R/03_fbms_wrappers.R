@@ -159,7 +159,8 @@ run_fbms_method <- function(
   task_data,
   cores = 2L,
   tuning_override = NULL,
-  fast_mode = FALSE
+  fast_mode = FALSE,
+  prune_tol_override = NULL
 ) {
   method_id <- match.arg(method_id)
   t_dicts <- register_fbms_transforms()
@@ -221,6 +222,7 @@ run_fbms_method <- function(
   }
 
   discovered_mpm <- vector("list", m)
+  discovered_mpm_raw <- vector("list", m)
   discovered_map <- vector("list", m)
   pip_list <- vector("list", m)
   eq_models <- vector("list", m)
@@ -228,6 +230,8 @@ run_fbms_method <- function(
   pred_train <- matrix(0.0, nrow = nrow(X_tr), ncol = m)
   pred_in <- matrix(0.0, nrow = nrow(X_in), ncol = m)
   pred_ood <- matrix(0.0, nrow = nrow(X_ood), ncol = m)
+  pred_bma_in <- matrix(NA_real_, nrow = nrow(X_in), ncol = m)
+  pred_bma_ood <- matrix(NA_real_, nrow = nrow(X_ood), ncol = m)
   lower_in <- matrix(0.0, nrow = nrow(X_in), ncol = m)
   upper_in <- matrix(0.0, nrow = nrow(X_in), ncol = m)
   lower_ood <- matrix(0.0, nrow = nrow(X_ood), ncol = m)
@@ -335,6 +339,10 @@ run_fbms_method <- function(
     # Extract MPM features (PIP > 0.5)
     mpm_idx <- which(pips_all > 0.5)
     mpm_raw_feats <- feat_strs_all[mpm_idx]
+    discovered_mpm_raw[[j]] <- extract_canonical_atoms(mpm_raw_feats)
+    if (!is.null(prune_tol_override)) {
+      prune_tol <- as.numeric(prune_tol_override)
+    }
 
     # Evaluate selected MPM features on train/in/ood and refit posterior mode / OLS with energy pruning
     if (length(mpm_raw_feats) > 0L) {
@@ -343,16 +351,20 @@ run_fbms_method <- function(
       if (!is.matrix(Phi_mpm_tr)) Phi_mpm_tr <- matrix(Phi_mpm_tr, nrow = nrow(X_tr_named))
       colnames(Phi_mpm_tr) <- mpm_raw_feats
 
-      # Energy pruning of negligible MPM terms
-      fit_init <- lm.fit(x = cbind(1.0, Phi_mpm_tr), y = Y_tr[, j])
-      coefs_init <- fit_init$coefficients[-1]
-      coefs_init[is.na(coefs_init)] <- 0.0
-      y_norm <- max(sqrt(sum(Y_tr[, j]^2)), 1e-12)
-      rel_energy <- sapply(seq_along(mpm_raw_feats), function(k) {
-        abs(coefs_init[k]) * sqrt(sum(Phi_mpm_tr[, k]^2)) / y_norm
-      })
-      keep_k <- which(rel_energy >= prune_tol)
-      mpm_kept_feats <- mpm_raw_feats[keep_k]
+      # Energy pruning of negligible MPM terms (skipped when prune_tol <= 0)
+      if (prune_tol > 0.0) {
+        fit_init <- lm.fit(x = cbind(1.0, Phi_mpm_tr), y = Y_tr[, j])
+        coefs_init <- fit_init$coefficients[-1]
+        coefs_init[is.na(coefs_init)] <- 0.0
+        y_norm <- max(sqrt(sum(Y_tr[, j]^2)), 1e-12)
+        rel_energy <- sapply(seq_along(mpm_raw_feats), function(k) {
+          abs(coefs_init[k]) * sqrt(sum(Phi_mpm_tr[, k]^2)) / y_norm
+        })
+        keep_k <- which(rel_energy >= prune_tol)
+        mpm_kept_feats <- mpm_raw_feats[keep_k]
+      } else {
+        mpm_kept_feats <- mpm_raw_feats
+      }
     } else {
       mpm_kept_feats <- character(0)
     }
@@ -392,41 +404,51 @@ run_fbms_method <- function(
       se_ood <- sigma_hat * sqrt(1.0 + pmax(0.0, rowSums((X_des_ood %*% XtX_inv) * X_des_ood)))
     } else {
       beta_hat <- mean(Y_tr[, j])
+      df_res <- max(1L, N_obs - 1L)
       sigma_hat <- sd(Y_tr[, j])
       mu_tr <- rep(beta_hat, nrow(X_tr))
       mu_in <- rep(beta_hat, nrow(X_in))
       mu_ood <- rep(beta_hat, nrow(X_ood))
-      se_in <- rep(sigma_hat, nrow(X_in))
-      se_ood <- rep(sigma_hat, nrow(X_ood))
+      se_in <- rep(sigma_hat * sqrt(1.0 + 1.0 / max(1L, N_obs)), nrow(X_in))
+      se_ood <- rep(sigma_hat * sqrt(1.0 + 1.0 / max(1L, N_obs)), nrow(X_ood))
     }
 
+    t_crit <- stats::qt(0.975, df = df_res)
+
     # Combine with FBMS BMA quantiles if available
-    bma_in <- tryCatch(suppressWarnings(predict(fbms_fit, x = X_in_df)), error = function(e) NULL)
-    bma_ood <- tryCatch(suppressWarnings(predict(fbms_fit, x = X_ood_df)), error = function(e) NULL)
+    bma_in <- tryCatch(
+      suppressWarnings(predict(fbms_fit, x = X_in_df, quantiles = c(0.025, 0.5, 0.975))),
+      error = function(e) NULL
+    )
+    bma_ood <- tryCatch(
+      suppressWarnings(predict(fbms_fit, x = X_ood_df, quantiles = c(0.025, 0.5, 0.975))),
+      error = function(e) NULL
+    )
 
     if (!is.null(bma_in) && !is.null(bma_in$aggr$mean) && all(is.finite(bma_in$aggr$mean))) {
-      # Blend BMA mean and MPM mean, and widen BMA quantiles by residual dispersion sigma_hat
+      pred_bma_in[, j] <- as.numeric(bma_in$aggr$mean)
       q_low_bma <- bma_in$aggr$quantiles[1, ]
       q_high_bma <- bma_in$aggr$quantiles[3, ]
       bma_halfwidth <- 0.5 * (q_high_bma - q_low_bma)
-      tot_halfwidth_in <- sqrt(bma_halfwidth^2 + (1.96 * se_in)^2)
+      tot_halfwidth_in <- sqrt(bma_halfwidth^2 + (t_crit * se_in)^2)
       lower_in[, j] <- mu_in - tot_halfwidth_in
       upper_in[, j] <- mu_in + tot_halfwidth_in
     } else {
-      lower_in[, j] <- mu_in - 1.96 * se_in
-      upper_in[, j] <- mu_in + 1.96 * se_in
+      lower_in[, j] <- mu_in - t_crit * se_in
+      upper_in[, j] <- mu_in + t_crit * se_in
     }
 
     if (!is.null(bma_ood) && !is.null(bma_ood$aggr$mean) && all(is.finite(bma_ood$aggr$mean))) {
+      pred_bma_ood[, j] <- as.numeric(bma_ood$aggr$mean)
       q_low_bma <- bma_ood$aggr$quantiles[1, ]
       q_high_bma <- bma_ood$aggr$quantiles[3, ]
       bma_halfwidth <- 0.5 * (q_high_bma - q_low_bma)
-      tot_halfwidth_ood <- sqrt(bma_halfwidth^2 + (1.96 * se_ood)^2)
+      tot_halfwidth_ood <- sqrt(bma_halfwidth^2 + (t_crit * se_ood)^2)
       lower_ood[, j] <- mu_ood - tot_halfwidth_ood
       upper_ood[, j] <- mu_ood + tot_halfwidth_ood
     } else {
-      lower_ood[, j] <- mu_ood - 1.96 * se_ood
-      upper_ood[, j] <- mu_ood + 1.96 * se_ood
+      lower_ood[, j] <- mu_ood - t_crit * se_ood
+      upper_ood[, j] <- mu_ood + t_crit * se_ood
     }
 
     pred_train[, j] <- mu_tr
@@ -462,11 +484,14 @@ run_fbms_method <- function(
   list(
     method_id = method_id,
     discovered = discovered_mpm,
+    discovered_raw = discovered_mpm_raw,
     discovered_map = discovered_map,
     pip_list = pip_list,
     pred_train = pred_train,
     pred_in = pred_in,
     pred_ood = pred_ood,
+    pred_bma_in = pred_bma_in,
+    pred_bma_ood = pred_bma_ood,
     lower_in = lower_in,
     upper_in = upper_in,
     lower_ood = lower_ood,

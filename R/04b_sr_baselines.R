@@ -39,7 +39,8 @@ find_sr_script <- function() {
 #' Run Symbolic Regression Baseline (SR_PySR or SR_Operon)
 run_sr_baseline <- function(
     method_id = c("SR_PySR", "SR_Operon"),
-    task_data) {
+    task_data,
+    strict_native = (Sys.getenv("SR_STRICT_NATIVE", "0") == "1")) {
   method_id <- match.arg(method_id)
   X_tr <- as.matrix(task_data$X_train)
   Y_tr <- as.matrix(task_data$Y_train)
@@ -68,9 +69,11 @@ run_sr_baseline <- function(
   )
   jsonlite::write_json(payload, tmp_in, auto_unbox = TRUE, digits = 10)
 
+  cli_args <- c(shQuote(sr_script), "--input", shQuote(tmp_in), "--output", shQuote(tmp_out))
+  if (isTRUE(strict_native)) cli_args <- c(cli_args, "--strict_native")
   cmd_status <- system2(
     py_bin,
-    args = c(shQuote(sr_script), "--input", shQuote(tmp_in), "--output", shQuote(tmp_out)),
+    args = cli_args,
     stdout = FALSE,
     stderr = FALSE
   )
@@ -111,7 +114,12 @@ run_sr_baseline <- function(
     } else {
       coef_vec <- numeric(0)
     }
-    eq_models[[j]] <- list(intercept = inter_j, coefs = coef_vec)
+    sym_raw <- if (!is.null(res_py$sympy_exprs) && length(res_py$sympy_exprs) >= j) {
+      as.character(res_py$sympy_exprs[[j]])
+    } else ""
+    sym_r <- gsub("\\*\\*", "^", sym_raw)
+    sym_r <- gsub("\\bsquare\\(", "(", sym_r)
+    eq_models[[j]] <- list(intercept = inter_j, coefs = coef_vec, sympy_expr = sym_r)
   }
 
   pred_train <- as.matrix(res_py$pred_train)
@@ -128,14 +136,28 @@ run_sr_baseline <- function(
     out_d <- matrix(0.0, nrow = nrow(X_df_new), ncol = m)
     for (j in seq_len(m)) {
       mod_j <- eq_models[[j]]
-      inter_val <- if (is.finite(mod_j$intercept)) mod_j$intercept else 0.0
-      val <- rep(inter_val, nrow(X_df_new))
-      if (length(mod_j$coefs) > 0L) {
-        for (nm in names(mod_j$coefs)) {
-          val <- val + mod_j$coefs[[nm]] * evaluate_basis_atom(nm, X_df_new)
+      used_sympy <- FALSE
+      if (!is.null(mod_j$sympy_expr) && nzchar(mod_j$sympy_expr)) {
+        val_sym <- evaluate_basis_atom(mod_j$sympy_expr, X_df_new)
+        if (length(val_sym) == nrow(X_df_new) && all(is.finite(val_sym))) {
+          # Guard against parse failure returning zero vector when non-zero linear fit exists
+          parsed_ok <- !is.null(tryCatch(parse(text = mod_j$sympy_expr), error = function(e) NULL))
+          if (parsed_ok) {
+            out_d[, j] <- val_sym
+            used_sympy <- TRUE
+          }
         }
       }
-      out_d[, j] <- val
+      if (!used_sympy) {
+        inter_val <- if (is.finite(mod_j$intercept)) mod_j$intercept else 0.0
+        val <- rep(inter_val, nrow(X_df_new))
+        if (length(mod_j$coefs) > 0L) {
+          for (nm in names(mod_j$coefs)) {
+            val <- val + mod_j$coefs[[nm]] * evaluate_basis_atom(nm, X_df_new)
+          }
+        }
+        out_d[, j] <- val
+      }
     }
     out_d
   }

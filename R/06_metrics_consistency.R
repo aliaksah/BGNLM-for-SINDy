@@ -27,9 +27,10 @@ compute_structure_metrics <- function(discovered_list, ground_truth_list) {
   oc_total <- 0L
 
   for (j in seq_len(m)) {
-    hat_j <- extract_canonical_atoms(discovered_list[[j]])
-    star_j <- extract_canonical_atoms(ground_truth_list[[j]])
-    oc_total <- oc_total + compute_operation_count(hat_j)
+    hat_j_raw <- extract_canonical_atoms(discovered_list[[j]])
+    oc_total <- oc_total + compute_operation_count(hat_j_raw)
+    hat_j <- normalize_modulo_intercept(hat_j_raw)
+    star_j <- normalize_modulo_intercept(extract_canonical_atoms(ground_truth_list[[j]]))
 
     tp_j <- length(intersect(hat_j, star_j))
     fp_j <- length(setdiff(hat_j, star_j))
@@ -101,6 +102,90 @@ compute_pip_brier_score <- function(pip_list, ground_truth_list) {
   }
   if (length(sq_errors) == 0L) return(NA_real_)
   mean(sq_errors)
+}
+
+#' Compute denominator-invariant PIP calibration metrics (SSPE, AUROC, AUPRC, and 10-bin reliability)
+compute_pip_calibration_metrics <- function(pip_list, ground_truth_list, n_bins = 10L) {
+  empty_res <- list(
+    PIP_Brier = NA_real_, PIP_SSPE = NA_real_,
+    PIP_AUROC = NA_real_, PIP_AUPRC = NA_real_,
+    reliability = data.frame(
+      bin_mid = numeric(0), mean_pip = numeric(0),
+      emp_freq = numeric(0), count = integer(0)
+    )
+  )
+  if (is.null(pip_list) || length(pip_list) == 0L) return(empty_res)
+
+  probs_all <- numeric(0)
+  truth_all <- numeric(0)
+  for (j in seq_along(ground_truth_list)) {
+    if (j > length(pip_list)) next
+    pips <- pip_list[[j]]
+    if (is.null(pips) || length(pips) == 0L) next
+    star_j <- normalize_modulo_intercept(extract_canonical_atoms(ground_truth_list[[j]]))
+
+    canon_names <- vapply(names(pips), function(nm) {
+      ca <- normalize_modulo_intercept(extract_canonical_atoms(nm))
+      if (length(ca) == 0L) "" else paste(ca, collapse = "+")
+    }, character(1))
+    valid <- nzchar(canon_names)
+    pips <- pips[valid]
+    canon_names <- canon_names[valid]
+
+    all_atoms <- union(unique(canon_names), star_j)
+    for (a in all_atoms) {
+      prob_a <- if (a %in% canon_names) max(pips[canon_names == a], na.rm = TRUE) else 0.0
+      prob_a <- min(max(prob_a, 0.0), 1.0)
+      probs_all <- c(probs_all, prob_a)
+      truth_all <- c(truth_all, as.numeric(a %in% star_j))
+    }
+  }
+  if (length(probs_all) == 0L) return(empty_res)
+
+  sq_err <- (probs_all - truth_all)^2
+  brier <- mean(sq_err)
+  sspe <- sum(sq_err)
+
+  # AUROC via Mann-Whitney U
+  n_pos <- sum(truth_all == 1.0)
+  n_neg <- sum(truth_all == 0.0)
+  auroc <- NA_real_
+  auprc <- NA_real_
+  if (n_pos > 0L && n_neg > 0L) {
+    rk <- rank(probs_all, ties.method = "average")
+    auroc <- (sum(rk[truth_all == 1.0]) - n_pos * (n_pos + 1.0) / 2.0) / (n_pos * n_neg)
+    ord <- order(probs_all, decreasing = TRUE)
+    t_ord <- truth_all[ord]
+    tp_cum <- cumsum(t_ord)
+    prec_k <- tp_cum / seq_along(t_ord)
+    rec_k <- tp_cum / n_pos
+    rec_prev <- c(0.0, rec_k[-length(rec_k)])
+    auprc <- sum((rec_k - rec_prev) * prec_k)
+  }
+
+  breaks <- seq(0.0, 1.0, length.out = n_bins + 1L)
+  bin_idx <- cut(probs_all, breaks = breaks, include.lowest = TRUE, labels = FALSE)
+  rel_rows <- lapply(seq_len(n_bins), function(b) {
+    sel <- which(bin_idx == b)
+    if (length(sel) == 0L) return(NULL)
+    data.frame(
+      bin_id = b,
+      bin_mid = 0.5 * (breaks[b] + breaks[b + 1L]),
+      mean_pip = mean(probs_all[sel]),
+      emp_freq = mean(truth_all[sel]),
+      count = length(sel)
+    )
+  })
+  rel_df <- do.call(rbind, Filter(Negate(is.null), rel_rows))
+  if (is.null(rel_df)) rel_df <- empty_res$reliability
+
+  list(
+    PIP_Brier = brier,
+    PIP_SSPE = sspe,
+    PIP_AUROC = auroc,
+    PIP_AUPRC = auprc,
+    reliability = rel_df
+  )
 }
 
 #' Compute R^2, clipped R^2, and NRMSE between predicted and true derivatives/trajectories
@@ -193,9 +278,11 @@ evaluate_trajectory_rollout <- function(predict_rhs_fn, rollout_spec, tol_valid 
     state_mat <- matrix(state, nrow = 1L, ncol = m)
     colnames(state_mat) <- colnames(X_true)
     if (!is.null(X_inputs)) {
-      # Interpolate exogenous inputs at time t
-      idx_t <- which.min(abs(times - t))
-      inp_mat <- matrix(X_inputs[idx_t, ], nrow = 1L)
+      # Continuous linear interpolation of exogenous inputs at time t
+      inp_vals <- vapply(seq_len(ncol(X_inputs)), function(k_inp) {
+        stats::approx(times, X_inputs[, k_inp], xout = t, rule = 2)$y
+      }, numeric(1))
+      inp_mat <- matrix(inp_vals, nrow = 1L)
       colnames(inp_mat) <- colnames(X_inputs)
       state_mat <- cbind(state_mat, inp_mat)
     }
@@ -269,7 +356,7 @@ compute_jaccard_stability <- function(selected_sets_list) {
 #' Nogueira's Stability Estimator (Nogueira et al., JMLR 2018) with 95% Confidence Intervals
 #' @param selected_sets_list List of length R, each a character vector of selected canonical atoms
 #' @param d_total Optional total universe size of candidate features (inferred from union + padding if NULL)
-compute_nogueira_stability <- function(selected_sets_list, d_total = NULL) {
+compute_nogueira_stability <- function(selected_sets_list, d_total = 100L) {
   M <- length(selected_sets_list)
   if (M < 2L) {
     return(list(phi = NA_real_, ci_lower = NA_real_, ci_upper = NA_real_))

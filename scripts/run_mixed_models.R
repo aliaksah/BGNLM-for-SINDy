@@ -35,6 +35,43 @@ if (file.exists(synth_file)) {
   if (nrow(res_synth$regime_effects) > 0L) {
     fwrite(res_synth$regime_effects, "results/aggregated/mixed_effects_synth_regime.csv")
   }
+  if (!is.null(res_synth$regime_dunnett) && nrow(res_synth$regime_dunnett) > 0L) {
+    fwrite(res_synth$regime_dunnett, "results/aggregated/mixed_effects_synth_regime_dunnett.csv")
+    rd <- copy(res_synth$regime_dunnett)
+    rd[, Metric := as.character(SystemGroup)]
+    rd[, term := paste0("Method", sub(" - BGNLM_Full_Tuned$", "", contrast))]
+    if ("SE" %in% names(rd)) setnames(rd, "SE", "std.error")
+    rd[, statistic := t.ratio]
+    rd[, p.dunnett := p.value]
+    if (all(c("lower.CL", "upper.CL") %in% names(rd))) {
+      setnames(rd, c("lower.CL", "upper.CL"), c("conf.low", "conf.high"))
+    }
+    export_mixed_effects_latex_table(
+      rd,
+      out_path = "results/tables/tbl_within_regime_contrasts.tex",
+      caption_str = "Within-Regime Dunnett-Adjusted LMM Contrasts for $F_1$ (\\texttt{Method} vs.\\ \\texttt{BGNLM\\_Full\\_Tuned}) Conditioned on Dynamical Regime Group.",
+      label_str = "tab:within_regime_contrasts"
+    )
+  }
+  if (!is.null(res_synth$ordbeta_contrasts) && nrow(res_synth$ordbeta_contrasts) > 0L) {
+    fwrite(res_synth$ordbeta_contrasts, "results/aggregated/mixed_effects_synth_ordbeta.csv")
+    ob <- copy(res_synth$ordbeta_contrasts)
+    ob[, term := paste0("Method", sub(" - BGNLM_Full_Tuned$", "", contrast))]
+    if ("SE" %in% names(ob)) setnames(ob, "SE", "std.error")
+    ob[, statistic := if ("z.ratio" %in% names(ob)) z.ratio else t.ratio]
+    ob[, p.dunnett := p.value]
+    if (all(c("asymp.LCL", "asymp.UCL") %in% names(ob))) {
+      setnames(ob, c("asymp.LCL", "asymp.UCL"), c("conf.low", "conf.high"))
+    } else if (all(c("lower.CL", "upper.CL") %in% names(ob))) {
+      setnames(ob, c("lower.CL", "upper.CL"), c("conf.low", "conf.high"))
+    }
+    export_mixed_effects_latex_table(
+      ob,
+      out_path = "results/tables/tbl_ordbeta_sensitivity.tex",
+      caption_str = "Ordered Beta GLMM Sensitivity Check (\\texttt{glmmTMB::ordbeta}, Link-Scale Logit Contrasts vs.\\ \\texttt{BGNLM\\_Full\\_Tuned}) Confirming Full Concordance on $[0,1]$-Bounded Outcomes.",
+      label_str = "tab:ordbeta_sensitivity"
+    )
+  }
   if (!is.null(res_synth$glmm_effects) && nrow(res_synth$glmm_effects) > 0L) {
     fwrite(res_synth$glmm_effects, "results/aggregated/mixed_effects_synth_glmm.csv")
     export_mixed_effects_latex_table(
@@ -70,8 +107,8 @@ if (file.exists(synth_file)) {
 
   plot_mixed_effects_forest(
     res_synth$fixed_effects[Metric %in% c("F1", "FDR", "R2_test_ood", "R2_traj")],
-    out_pdf = "results/figures/fig_mixed_effects_forest_synth.pdf",
-    title_str = "Experiment 1 (Synthetic ODEs): Mixed-Effects Contrasts vs. BGNLM_Full_Tuned"
+    dunnett_dt = res_synth$dunnett_contrasts[Metric %in% c("F1", "FDR", "R2_test_ood", "R2_traj")],
+    out_pdf = "results/figures/fig_mixed_effects_forest_synth.pdf"
   )
   plot_benchmark_summary(df_synth, out_pdf = "results/figures/fig_synth_benchmark_overview.pdf")
   message("[OK] Exported synthetic mixed-effects tables and forest plots.")
@@ -97,8 +134,8 @@ if (file.exists(real_file)) {
 
   plot_mixed_effects_forest(
     res_real$fixed_effects,
-    out_pdf = "results/figures/fig_mixed_effects_forest_real.pdf",
-    title_str = "Experiment 2 (Quasi-Empirical ODEs): Mixed-Effects Contrasts vs. BGNLM_Full_Tuned"
+    dunnett_dt = res_real$dunnett_contrasts,
+    out_pdf = "results/figures/fig_mixed_effects_forest_real.pdf"
   )
   message("[OK] Exported quasi-empirical mixed-effects tables and forest plots.")
 }

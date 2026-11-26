@@ -23,7 +23,7 @@ stlsq_fit_single <- function(Phi, y, lambda = 0.05, alpha = 1e-5, max_iter = 15L
   col_sds <- apply(Phi, 2, sd)
   valid_cols <- which(is.finite(col_sds) & col_sds > 1e-10)
   if (length(valid_cols) == 0L) {
-    return(list(intercept = y_mean, coefs = setNames(rep(0.0, p), colnames(Phi)), active = integer(0)))
+    return(list(intercept = y_mean, coefs = setNames(rep(0.0, p), colnames(Phi)), active = integer(0), lambda = lambda))
   }
 
   Phi_std <- scale(Phi[, valid_cols, drop = FALSE], center = col_means[valid_cols], scale = col_sds[valid_cols])
@@ -62,7 +62,7 @@ stlsq_fit_single <- function(Phi, y, lambda = 0.05, alpha = 1e-5, max_iter = 15L
     intercept <- y_mean
   }
 
-  list(intercept = intercept, coefs = coefs_full, active = active_orig)
+  list(intercept = intercept, coefs = coefs_full, active = active_orig, lambda = lambda)
 }
 
 #' Cross-Validated + BIC-Regularized STLSQ Selection
@@ -101,7 +101,7 @@ build_sindy_pi_rational_library <- function(X) {
     colnames(X) <- col_names
   }
   m <- ncol(X)
-  Phi_poly <- build_poly_library(X, max_deg = 2L)
+  Phi_poly <- build_poly_library(X, max_deg = 3L)
 
   rat_list <- list()
   rat_names <- character(0)
@@ -143,7 +143,8 @@ run_sindy_baseline <- function(
     "SINDy_PI_Rational"
   ),
   task_data,
-  n_boot = 80L
+  n_boot = 80L,
+  prune_tol = 0.0
 ) {
   method_id <- match.arg(method_id)
   X_tr_raw <- as.matrix(task_data$X_train)
@@ -186,6 +187,25 @@ run_sindy_baseline <- function(
 
     if (method_id %in% c("SINDy_STLSQ_Oracle", "SINDy_STLSQ_Poly", "SINDy_PI_Rational")) {
       fit_j <- cv_stlsq_fit(Phi_tr, yj)
+      active_idx <- fit_j$active
+      if (prune_tol > 0.0 && length(active_idx) > 0L) {
+        y_norm <- max(sqrt(sum(yj^2)), 1e-12)
+        rel_en <- vapply(active_idx, function(k_idx) {
+          abs(fit_j$coefs[k_idx]) * sqrt(sum(Phi_tr[, k_idx]^2)) / y_norm
+        }, numeric(1))
+        active_idx <- active_idx[rel_en >= prune_tol]
+        if (length(active_idx) > 0L) {
+          ols_p <- lm.fit(x = cbind(1.0, Phi_tr[, active_idx, drop = FALSE]), y = yj)
+          b_p <- ols_p$coefficients; b_p[is.na(b_p)] <- 0.0
+          fit_j$intercept <- b_p[1]
+          fit_j$coefs <- setNames(rep(0.0, p), cand_names)
+          fit_j$coefs[active_idx] <- b_p[-1]
+        } else {
+          fit_j$intercept <- mean(yj)
+          fit_j$coefs <- setNames(rep(0.0, p), cand_names)
+        }
+        fit_j$active <- active_idx
+      }
       active_names <- cand_names[fit_j$active]
       discovered[[j]] <- extract_canonical_atoms(active_names)
       pip_vec <- as.numeric(cand_names %in% active_names)
@@ -290,6 +310,273 @@ run_sindy_baseline <- function(
     upper_in = upper_in,
     lower_ood = lower_ood,
     upper_ood = upper_ood,
+    predict_rhs_fn = predict_rhs_fn
+  )
+}
+
+#' True Bayesian Spike-and-Slab / BIC Model Averaging SINDy Baseline via BAS::bas.lm
+run_uq_sindy_bayes <- function(
+  task_data,
+  dict_type = c("poly", "oracle"),
+  mcmc_iters = 5000L
+) {
+  dict_type <- match.arg(dict_type)
+  method_id <- if (dict_type == "oracle") "UQ_SINDy_Bayes_Oracle" else "UQ_SINDy_Bayes_Poly"
+
+  X_tr_raw <- as.matrix(task_data$X_train)
+  Y_tr <- as.matrix(task_data$Y_train)
+  X_in_raw <- as.matrix(task_data$X_test_in)
+  X_ood_raw <- as.matrix(task_data$X_test_ood)
+  m <- ncol(Y_tr)
+  extra_oracle <- if (!is.null(task_data$system$oracle_extra_basis)) task_data$system$oracle_extra_basis else character(0)
+
+  build_Phi_fn <- function(X_mat) {
+    if (dict_type == "oracle") {
+      build_oracle_library(X_mat, extra_atoms = extra_oracle, max_deg = 3L)
+    } else {
+      build_poly_library(X_mat, max_deg = 3L)
+    }
+  }
+
+  Phi_tr <- build_Phi_fn(X_tr_raw)
+  Phi_in <- build_Phi_fn(X_in_raw)
+  Phi_ood <- build_Phi_fn(X_ood_raw)
+  cand_names <- colnames(Phi_tr)
+  p <- ncol(Phi_tr)
+  safe_names <- paste0("b", seq_len(p))
+
+  df_tr <- as.data.frame(Phi_tr); colnames(df_tr) <- safe_names
+  df_in <- as.data.frame(Phi_in); colnames(df_in) <- safe_names
+  df_ood <- as.data.frame(Phi_ood); colnames(df_ood) <- safe_names
+
+  discovered <- vector("list", m)
+  pip_list <- vector("list", m)
+  eq_models <- vector("list", m)
+
+  pred_train <- matrix(0.0, nrow = nrow(Phi_tr), ncol = m)
+  pred_in <- matrix(0.0, nrow = nrow(Phi_in), ncol = m)
+  pred_ood <- matrix(0.0, nrow = nrow(Phi_ood), ncol = m)
+  lower_in <- matrix(0.0, nrow = nrow(Phi_in), ncol = m)
+  upper_in <- matrix(0.0, nrow = nrow(Phi_in), ncol = m)
+  lower_ood <- matrix(0.0, nrow = nrow(Phi_ood), ncol = m)
+  upper_ood <- matrix(0.0, nrow = nrow(Phi_ood), ncol = m)
+
+  for (j in seq_len(m)) {
+    yj <- Y_tr[, j]
+    dat_j <- cbind(y_resp = yj, df_tr)
+    bas_method <- if (p <= 18L) "deterministic" else "MCMC"
+    fit_bas <- suppressWarnings(BAS::bas.lm(
+      y_resp ~ .,
+      data = dat_j,
+      prior = "BIC",
+      modelprior = BAS::uniform(),
+      method = bas_method,
+      MCMC.iterations = as.integer(mcmc_iters),
+      include.always = ~1
+    ))
+
+    pips <- as.numeric(fit_bas$probne0[-1])
+    pips[!is.finite(pips)] <- 0.0
+    names(pips) <- cand_names
+    pip_list[[j]] <- pips
+
+    mpm_idx <- which(pips > 0.5)
+    discovered[[j]] <- extract_canonical_atoms(cand_names[mpm_idx])
+
+    pr_tr <- predict(fit_bas, newdata = df_tr, estimator = "BMA")
+    pr_in <- predict(fit_bas, newdata = df_in, estimator = "BMA", se.fit = TRUE)
+    pr_ood <- predict(fit_bas, newdata = df_ood, estimator = "BMA", se.fit = TRUE)
+
+    pred_train[, j] <- as.numeric(pr_tr$fit)
+    pred_in[, j] <- as.numeric(pr_in$fit)
+    pred_ood[, j] <- as.numeric(pr_ood$fit)
+
+    # Predictive intervals combining posterior BMA parameter uncertainty + residual SD
+    n_obs <- nrow(Phi_tr)
+    df_res <- max(1L, n_obs - length(mpm_idx) - 1L)
+    t_crit <- stats::qt(0.975, df = df_res)
+    sigma_res <- sqrt(mean((yj - pred_train[, j])^2) * n_obs / df_res)
+    se_in_pred <- sqrt(as.numeric(pr_in$se.bma.pred)^2)
+    se_ood_pred <- sqrt(as.numeric(pr_ood$se.bma.pred)^2)
+    if (!all(is.finite(se_in_pred))) se_in_pred <- rep(sigma_res, nrow(Phi_in))
+    if (!all(is.finite(se_ood_pred))) se_ood_pred <- rep(sigma_res, nrow(Phi_ood))
+
+    lower_in[, j] <- pred_in[, j] - t_crit * se_in_pred
+    upper_in[, j] <- pred_in[, j] + t_crit * se_in_pred
+    lower_ood[, j] <- pred_ood[, j] - t_crit * se_ood_pred
+    upper_ood[, j] <- pred_ood[, j] + t_crit * se_ood_pred
+
+    # OLS refit on MPM support for clean autonomous rollout RHS
+    if (length(mpm_idx) > 0L) {
+      ols_j <- lm.fit(x = cbind(1.0, Phi_tr[, mpm_idx, drop = FALSE]), y = yj)
+      b_j <- ols_j$coefficients; b_j[is.na(b_j)] <- 0.0
+      inter_j <- b_j[1]
+      coefs_j <- setNames(rep(0.0, p), cand_names)
+      coefs_j[mpm_idx] <- b_j[-1]
+    } else {
+      inter_j <- mean(yj)
+      coefs_j <- setNames(rep(0.0, p), cand_names)
+    }
+    eq_models[[j]] <- list(intercept = inter_j, coefs = coefs_j)
+  }
+
+  predict_rhs_fn <- function(X_state_mat) {
+    Phi_new <- build_Phi_fn(X_state_mat)
+    out_d <- matrix(0.0, nrow = nrow(Phi_new), ncol = m)
+    for (j in seq_len(m)) {
+      out_d[, j] <- eq_models[[j]]$intercept + as.numeric(Phi_new %*% eq_models[[j]]$coefs)
+    }
+    out_d
+  }
+
+  list(
+    method_id = method_id,
+    engine = "r_bas_bayes",
+    discovered = discovered,
+    pip_list = pip_list,
+    pred_train = pred_train,
+    pred_in = pred_in,
+    pred_ood = pred_ood,
+    lower_in = lower_in,
+    upper_in = upper_in,
+    lower_ood = lower_ood,
+    upper_ood = upper_ood,
+    predict_rhs_fn = predict_rhs_fn
+  )
+}
+
+#' Weak-Form Integral SINDy Baseline (WSINDy; Messenger & Bortz 2021)
+#' Eliminates numerical state differentiation via integration by parts against compact C^p test functions.
+run_wsindy_baseline <- function(
+  task_data,
+  dict_type = c("poly", "oracle"),
+  p_smooth = 4L,
+  n_test_funcs = 60L
+) {
+  dict_type <- match.arg(dict_type)
+  method_id <- if (dict_type == "oracle") "WSINDy_Oracle" else "WSINDy_Poly"
+
+  # Require time-ordered sequential observations for integral inner products
+  X_seq <- if (!is.null(task_data$X_seq)) as.matrix(task_data$X_seq) else as.matrix(task_data$X_train)
+  t_seq <- if (!is.null(task_data$t_seq)) as.numeric(task_data$t_seq) else if (!is.null(task_data$t_train)) as.numeric(task_data$t_train) else NULL
+  X_tr_raw <- as.matrix(task_data$X_train)
+  Y_tr <- as.matrix(task_data$Y_train)
+  X_in_raw <- as.matrix(task_data$X_test_in)
+  X_ood_raw <- as.matrix(task_data$X_test_ood)
+  m <- ncol(Y_tr)
+  extra_oracle <- if (!is.null(task_data$system$oracle_extra_basis)) task_data$system$oracle_extra_basis else character(0)
+
+  build_Phi_fn <- function(X_mat) {
+    if (dict_type == "oracle") {
+      build_oracle_library(X_mat, extra_atoms = extra_oracle, max_deg = 3L)
+    } else {
+      build_poly_library(X_mat, max_deg = 3L)
+    }
+  }
+
+  Phi_tr <- build_Phi_fn(X_tr_raw)
+  Phi_in <- build_Phi_fn(X_in_raw)
+  Phi_ood <- build_Phi_fn(X_ood_raw)
+  cand_names <- colnames(Phi_tr)
+  p <- ncol(Phi_tr)
+
+  # Build weak-form test matrix Psi and dPsi if time vector is available
+  use_weak <- !is.null(t_seq) && length(t_seq) == nrow(X_seq) && length(t_seq) >= 25L
+  if (use_weak) {
+    ord_t <- order(t_seq)
+    t_seq <- t_seq[ord_t]
+    X_seq <- X_seq[ord_t, , drop = FALSE]
+    Phi_seq <- build_Phi_fn(X_seq)
+    n_seq <- length(t_seq)
+    t_span <- t_seq[n_seq] - t_seq[1]
+    dt_med <- stats::median(diff(t_seq))
+    # Adaptive support half-width: local to dynamical timescale (~6-10 steps, capped at 1.0 time units unless t_span is large & sparse)
+    hw <- max(6.0 * dt_med, min(1.0, 0.025 * t_span))
+    centers <- seq(t_seq[1] + hw, t_seq[n_seq] - hw, length.out = min(n_test_funcs, max(20L, floor(n_seq / 3L))))
+
+    # Trapezoidal quadrature weights
+    dt_v <- diff(t_seq)
+    wq <- numeric(n_seq)
+    wq[1] <- 0.5 * dt_v[1]
+    wq[n_seq] <- 0.5 * dt_v[n_seq - 1L]
+    if (n_seq > 2L) wq[2:(n_seq - 1L)] <- 0.5 * (dt_v[1:(n_seq - 2L)] + dt_v[2:(n_seq - 1L)])
+
+    K_q <- length(centers)
+    Psi <- matrix(0.0, nrow = K_q, ncol = n_seq)
+    dPsi <- matrix(0.0, nrow = K_q, ncol = n_seq)
+    keep_q <- logical(K_q)
+    for (q in seq_len(K_q)) {
+      u <- (t_seq - centers[q]) / hw
+      supp <- which(abs(u) < 1.0)
+      if (length(supp) >= 5L) {
+        us <- u[supp]
+        psi_val <- (1.0 - us^2)^p_smooth
+        dpsi_val <- (-2.0 * p_smooth * us / hw) * (1.0 - us^2)^(p_smooth - 1L)
+        norm_q <- sum(wq[supp] * psi_val)
+        if (norm_q > 1e-12) {
+          Psi[q, supp] <- (psi_val * wq[supp]) / norm_q
+          dPsi[q, supp] <- (dpsi_val * wq[supp]) / norm_q
+          keep_q[q] <- TRUE
+        }
+      }
+    }
+    if (sum(keep_q) >= 15L) {
+      G_mat <- Psi[keep_q, , drop = FALSE] %*% Phi_seq
+      colnames(G_mat) <- cand_names
+      B_mat <- -dPsi[keep_q, , drop = FALSE] %*% X_seq[, seq_len(m), drop = FALSE]
+    } else {
+      use_weak <- FALSE
+    }
+  }
+
+  discovered <- vector("list", m)
+  pip_list <- vector("list", m)
+  eq_models <- vector("list", m)
+  pred_train <- matrix(0.0, nrow = nrow(Phi_tr), ncol = m)
+  pred_in <- matrix(0.0, nrow = nrow(Phi_in), ncol = m)
+  pred_ood <- matrix(0.0, nrow = nrow(Phi_ood), ncol = m)
+  na_in <- matrix(NA_real_, nrow = nrow(Phi_in), ncol = m)
+  na_ood <- matrix(NA_real_, nrow = nrow(Phi_ood), ncol = m)
+
+  for (j in seq_len(m)) {
+    if (use_weak) {
+      fit_j <- cv_stlsq_fit(G_mat, B_mat[, j])
+    } else {
+      fit_j <- cv_stlsq_fit(Phi_tr, Y_tr[, j])
+    }
+    active_names <- cand_names[fit_j$active]
+    discovered[[j]] <- extract_canonical_atoms(active_names)
+    pip_vec <- as.numeric(cand_names %in% active_names)
+    names(pip_vec) <- cand_names
+    pip_list[[j]] <- pip_vec
+
+    pred_train[, j] <- fit_j$intercept + as.numeric(Phi_tr %*% fit_j$coefs)
+    pred_in[, j] <- fit_j$intercept + as.numeric(Phi_in %*% fit_j$coefs)
+    pred_ood[, j] <- fit_j$intercept + as.numeric(Phi_ood %*% fit_j$coefs)
+    eq_models[[j]] <- list(intercept = fit_j$intercept, coefs = fit_j$coefs)
+  }
+
+  predict_rhs_fn <- function(X_state_mat) {
+    Phi_new <- build_Phi_fn(X_state_mat)
+    out_d <- matrix(0.0, nrow = nrow(Phi_new), ncol = m)
+    for (j in seq_len(m)) {
+      out_d[, j] <- eq_models[[j]]$intercept + as.numeric(Phi_new %*% eq_models[[j]]$coefs)
+    }
+    out_d
+  }
+
+  list(
+    method_id = method_id,
+    engine = "r_wsindy",
+    discovered = discovered,
+    pip_list = pip_list,
+    pred_train = pred_train,
+    pred_in = pred_in,
+    pred_ood = pred_ood,
+    lower_in = na_in,
+    upper_in = na_in,
+    lower_ood = na_ood,
+    upper_ood = na_ood,
     predict_rhs_fn = predict_rhs_fn
   )
 }

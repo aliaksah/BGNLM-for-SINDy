@@ -1,0 +1,52 @@
+\begin{table*}[t]
+\centering
+\caption{Within-Regime Dunnett-Adjusted LMM Contrasts for $F_1$ (\texttt{Method} vs.\ \texttt{BGNLM\_Full\_Tuned}) Conditioned on Dynamical Regime Group.}
+\label{tab:within_regime_contrasts}
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{0.88}
+\begin{tabular}{llccccccc}
+\toprule
+Metric & Term / Contrast (vs.\ \texttt{BGNLM\_Full\_Tuned}) & $\hat{\beta}$ & SE & $df$ & $t$ & $95\%$ CI & $p$-value & $p_{\text{adj}}$ \\
+\midrule
+Group A ($F_1$) & \texttt{BGLM\_Oracle\_Basis} & -0.030 & 0.081 & 108.0 & -0.37 & [-0.259, 0.200] & $0.9980$ & $0.9980$ \\
+Group A ($F_1$) & \texttt{BGLM\_Overcomplete} & -0.241 & 0.081 & 108.0 & -2.98 & [-0.470, -0.011] & $0.0344$ & $0.0344$ \\
+Group A ($F_1$) & \texttt{BGLM\_Poly\_Basis} & -0.030 & 0.081 & 108.0 & -0.37 & [-0.260, 0.199] & $0.9979$ & $0.9979$ \\
+Group A ($F_1$) & \texttt{BGNLM\_Hybrid\_Poly} & -0.073 & 0.081 & 108.0 & -0.90 & [-0.303, 0.157] & $0.9264$ & $0.9264$ \\
+Group A ($F_1$) & \texttt{BGNLM\_IWSM\_Untuned} & -0.195 & 0.081 & 108.0 & -2.41 & [-0.424, 0.035] & $0.1426$ & $0.1426$ \\
+Group A ($F_1$) & \texttt{SINDy\_RatPoly2} & -0.402 & 0.081 & 108.0 & -4.97 & [-0.631, -0.172] & $< 10^{-4}$ & $< 10^{-4}$ \\
+Group A ($F_1$) & \texttt{SINDy\_STLSQ\_Oracle} & -0.148 & 0.081 & 108.0 & -1.84 & [-0.378, 0.081] & $0.4123$ & $0.4123$ \\
+Group A ($F_1$) & \texttt{SINDy\_STLSQ\_Poly} & -0.148 & 0.081 & 108.0 & -1.84 & [-0.378, 0.081] & $0.4123$ & $0.4123$ \\
+Group A ($F_1$) & \texttt{SR\_Pool\_MDL} & -0.328 & 0.081 & 108.0 & -4.06 & [-0.558, -0.098] & $0.0011$ & $0.0011$ \\
+Group A ($F_1$) & \texttt{SR\_Pool\_Pareto} & -0.341 & 0.081 & 108.0 & -4.22 & [-0.571, -0.112] & $0.0006$ & $0.0006$ \\
+Group A ($F_1$) & \texttt{Bag\_STLSQ\_Oracle} & -0.269 & 0.081 & 108.0 & -3.32 & [-0.498, -0.039] & $0.0124$ & $0.0124$ \\
+Group A ($F_1$) & \texttt{Bag\_STLSQ\_Poly} & -0.269 & 0.081 & 108.0 & -3.32 & [-0.498, -0.039] & $0.0124$ & $0.0124$ \\
+\midrule
+Group B ($F_1$) & \texttt{BGLM\_Oracle\_Basis} & 0.081 & 0.107 & 108.0 & 0.76 & [-0.223, 0.385] & $0.9621$ & $0.9621$ \\
+Group B ($F_1$) & \texttt{BGLM\_Overcomplete} & -0.187 & 0.107 & 108.0 & -1.75 & [-0.491, 0.116] & $0.4642$ & $0.4642$ \\
+Group B ($F_1$) & \texttt{BGLM\_Poly\_Basis} & -0.381 & 0.107 & 108.0 & -3.56 & [-0.684, -0.077] & $0.0059$ & $0.0059$ \\
+Group B ($F_1$) & \texttt{BGNLM\_Hybrid\_Poly} & -0.185 & 0.107 & 108.0 & -1.73 & [-0.489, 0.118] & $0.4756$ & $0.4756$ \\
+Group B ($F_1$) & \texttt{BGNLM\_IWSM\_Untuned} & -0.365 & 0.107 & 108.0 & -3.41 & [-0.669, -0.061] & $0.0095$ & $0.0095$ \\
+Group B ($F_1$) & \texttt{SINDy\_RatPoly2} & -0.490 & 0.107 & 108.0 & -4.59 & [-0.794, -0.187] & $0.0001$ & $0.0001$ \\
+Group B ($F_1$) & \texttt{SINDy\_STLSQ\_Oracle} & -0.159 & 0.107 & 108.0 & -1.49 & [-0.463, 0.144] & $0.6345$ & $0.6345$ \\
+Group B ($F_1$) & \texttt{SINDy\_STLSQ\_Poly} & -0.454 & 0.107 & 108.0 & -4.25 & [-0.758, -0.151] & $0.0005$ & $0.0005$ \\
+Group B ($F_1$) & \texttt{SR\_Pool\_MDL} & -0.218 & 0.107 & 108.0 & -2.04 & [-0.522, 0.085] & $0.2945$ & $0.2945$ \\
+Group B ($F_1$) & \texttt{SR\_Pool\_Pareto} & -0.241 & 0.107 & 108.0 & -2.25 & [-0.545, 0.063] & $0.1981$ & $0.1981$ \\
+Group B ($F_1$) & \texttt{Bag\_STLSQ\_Oracle} & -0.314 & 0.107 & 108.0 & -2.94 & [-0.618, -0.010] & $0.0384$ & $0.0384$ \\
+Group B ($F_1$) & \texttt{Bag\_STLSQ\_Poly} & -0.509 & 0.107 & 108.0 & -4.76 & [-0.813, -0.205] & $< 10^{-4}$ & $< 10^{-4}$ \\
+\midrule
+Group C ($F_1$) & \texttt{BGLM\_Oracle\_Basis} & -0.035 & 0.214 & 108.0 & -0.16 & [-0.642, 0.573] & $0.9999$ & $0.9999$ \\
+Group C ($F_1$) & \texttt{BGLM\_Overcomplete} & -0.383 & 0.214 & 108.0 & -1.79 & [-0.991, 0.224] & $0.4391$ & $0.4391$ \\
+Group C ($F_1$) & \texttt{BGLM\_Poly\_Basis} & -0.035 & 0.214 & 108.0 & -0.16 & [-0.642, 0.573] & $0.9999$ & $0.9999$ \\
+Group C ($F_1$) & \texttt{BGNLM\_Hybrid\_Poly} & -0.015 & 0.214 & 108.0 & -0.07 & [-0.623, 0.592] & $1.0000$ & $1.0000$ \\
+Group C ($F_1$) & \texttt{BGNLM\_IWSM\_Untuned} & -0.661 & 0.214 & 108.0 & -3.09 & [-1.268, -0.053] & $0.0251$ & $0.0251$ \\
+Group C ($F_1$) & \texttt{SINDy\_RatPoly2} & -0.137 & 0.214 & 108.0 & -0.64 & [-0.745, 0.470] & $0.9803$ & $0.9803$ \\
+Group C ($F_1$) & \texttt{SINDy\_STLSQ\_Oracle} & -0.171 & 0.214 & 108.0 & -0.80 & [-0.779, 0.436] & $0.9529$ & $0.9529$ \\
+Group C ($F_1$) & \texttt{SINDy\_STLSQ\_Poly} & -0.171 & 0.214 & 108.0 & -0.80 & [-0.779, 0.436] & $0.9529$ & $0.9529$ \\
+Group C ($F_1$) & \texttt{SR\_Pool\_MDL} & -0.388 & 0.214 & 108.0 & -1.81 & [-0.995, 0.220] & $0.4261$ & $0.4261$ \\
+Group C ($F_1$) & \texttt{SR\_Pool\_Pareto} & -0.397 & 0.214 & 108.0 & -1.86 & [-1.005, 0.210] & $0.3992$ & $0.3992$ \\
+Group C ($F_1$) & \texttt{Bag\_STLSQ\_Oracle} & -0.367 & 0.214 & 108.0 & -1.71 & [-0.974, 0.241] & $0.4885$ & $0.4885$ \\
+Group C ($F_1$) & \texttt{Bag\_STLSQ\_Poly} & -0.367 & 0.214 & 108.0 & -1.71 & [-0.974, 0.241] & $0.4885$ & $0.4885$ \\
+\bottomrule
+\end{tabular}
+\end{table*}

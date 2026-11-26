@@ -3,55 +3,53 @@
 \caption{Regime Moderation Interaction LMM (\texttt{Method * SystemGroup}) Testing Polynomial vs.\ Non-Polynomial vs.\ 5D Dynamics (\texttt{Group\_C} comprises 5D Lorenz-96).}
 \label{tab:mixed_effects_regime}
 \scriptsize
-\setlength{\tabcolsep}{3.0pt}
-\renewcommand{\arraystretch}{0.86}
-\resizebox{\textwidth}{!}{%
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{0.88}
 \begin{tabular}{llccccccc}
 \toprule
 Metric & Term / Contrast (vs.\ \texttt{BGNLM\_Full\_Tuned}) & $\hat{\beta}$ & SE & $df$ & $t$ & $95\%$ CI & $p$-value & $p_{\text{adj}}$ \\
 \midrule
-F1\_Regime & \texttt{(Intercept)} & 0.639 & 0.104 & 17.3 & 6.13 & [0.419, 0.858] & $< 10^{-4}$ & $0.0004$ \\
-F1\_Regime & \texttt{BGLM\_Oracle\_Basis} & -0.030 & 0.081 & 108.0 & -0.37 & [-0.191, 0.132] & $0.7150$ & $1.0000$ \\
-F1\_Regime & \texttt{BGLM\_Overcomplete} & -0.241 & 0.081 & 108.0 & -2.96 & [-0.402, -0.079] & $0.0038$ & $0.1260$ \\
-F1\_Regime & \texttt{BGLM\_Poly\_Basis} & -0.030 & 0.081 & 108.0 & -0.37 & [-0.192, 0.131] & $0.7113$ & $1.0000$ \\
-F1\_Regime & \texttt{BGNLM\_Hybrid\_Poly} & -0.073 & 0.081 & 108.0 & -0.90 & [-0.234, 0.088] & $0.3723$ & $1.0000$ \\
-F1\_Regime & \texttt{BGNLM\_IWSM\_Untuned} & -0.195 & 0.081 & 108.0 & -2.39 & [-0.356, -0.033] & $0.0185$ & $0.5738$ \\
-F1\_Regime & \texttt{SINDy\_RatPoly2} & -0.416 & 0.081 & 108.0 & -5.12 & [-0.578, -0.255] & $< 10^{-4}$ & $< 10^{-4}$ \\
-F1\_Regime & \texttt{SINDy\_STLSQ\_Oracle} & -0.148 & 0.081 & 108.0 & -1.82 & [-0.310, 0.013] & $0.0712$ & $1.0000$ \\
-F1\_Regime & \texttt{SINDy\_STLSQ\_Poly} & -0.148 & 0.081 & 108.0 & -1.82 & [-0.310, 0.013] & $0.0712$ & $1.0000$ \\
-F1\_Regime & \texttt{SR\_Pool\_MDL} & -0.328 & 0.081 & 108.0 & -4.03 & [-0.489, -0.167] & $0.0001$ & $0.0037$ \\
-F1\_Regime & \texttt{SR\_Pool\_Pareto} & -0.341 & 0.081 & 108.0 & -4.19 & [-0.503, -0.180] & $< 10^{-4}$ & $0.0021$ \\
-F1\_Regime & \texttt{Bag\_STLSQ\_Oracle} & -0.269 & 0.081 & 108.0 & -3.30 & [-0.430, -0.107] & $0.0013$ & $0.0457$ \\
-F1\_Regime & \texttt{Bag\_STLSQ\_Poly} & -0.269 & 0.081 & 108.0 & -3.30 & [-0.430, -0.107] & $0.0013$ & $0.0457$ \\
-F1\_Regime & \texttt{Group\_B\_NonPolynomial} & -0.076 & 0.173 & 17.2 & -0.44 & [-0.440, 0.287] & $0.6635$ & $1.0000$ \\
-F1\_Regime & \texttt{Group\_C\_HighDim} & 0.120 & 0.294 & 17.2 & 0.41 & [-0.500, 0.741] & $0.6879$ & $1.0000$ \\
-F1\_Regime & \texttt{log10\_Noise} & -0.068 & 0.001 & 8386.0 & -72.45 & [-0.069, -0.066] & $< 10^{-4}$ & $< 10^{-4}$ \\
-F1\_Regime & \texttt{log10\_N} & 0.054 & 0.002 & 8386.7 & 28.58 & [0.050, 0.057] & $< 10^{-4}$ & $< 10^{-4}$ \\
-F1\_Regime & \texttt{BGLM\_Oracle\_Basis:Group\_B\_NonPolynomial} & 0.125 & 0.135 & 108.0 & 0.92 & [-0.143, 0.392] & $0.3570$ & $1.0000$ \\
-F1\_Regime & \texttt{BGLM\_Overcomplete:Group\_B\_NonPolynomial} & 0.056 & 0.135 & 108.0 & 0.41 & [-0.212, 0.323] & $0.6813$ & $1.0000$ \\
-F1\_Regime & \texttt{BGLM\_Poly\_Basis:Group\_B\_NonPolynomial} & -0.336 & 0.135 & 108.0 & -2.49 & [-0.604, -0.069] & $0.0143$ & $0.4560$ \\
-F1\_Regime & \texttt{BGNLM\_Hybrid\_Poly:Group\_B\_NonPolynomial} & -0.099 & 0.135 & 108.0 & -0.73 & [-0.366, 0.169] & $0.4652$ & $1.0000$ \\
-F1\_Regime & \texttt{BGNLM\_IWSM\_Untuned:Group\_B\_NonPolynomial} & -0.156 & 0.135 & 108.0 & -1.16 & [-0.424, 0.111] & $0.2502$ & $1.0000$ \\
-F1\_Regime & \texttt{SINDy\_RatPoly2:Group\_B\_NonPolynomial} & -0.086 & 0.135 & 108.0 & -0.63 & [-0.353, 0.182] & $0.5276$ & $1.0000$ \\
-F1\_Regime & \texttt{SINDy\_STLSQ\_Oracle:Group\_B\_NonPolynomial} & 0.003 & 0.135 & 108.0 & 0.02 & [-0.264, 0.271] & $0.9819$ & $1.0000$ \\
-F1\_Regime & \texttt{SINDy\_STLSQ\_Poly:Group\_B\_NonPolynomial} & -0.292 & 0.135 & 108.0 & -2.16 & [-0.559, -0.024] & $0.0328$ & $0.9835$ \\
-F1\_Regime & \texttt{SR\_Pool\_MDL:Group\_B\_NonPolynomial} & 0.119 & 0.135 & 108.0 & 0.88 & [-0.149, 0.386] & $0.3814$ & $1.0000$ \\
-F1\_Regime & \texttt{SR\_Pool\_Pareto:Group\_B\_NonPolynomial} & 0.110 & 0.135 & 108.0 & 0.82 & [-0.157, 0.378] & $0.4165$ & $1.0000$ \\
-F1\_Regime & \texttt{Bag\_STLSQ\_Oracle:Group\_B\_NonPolynomial} & -0.031 & 0.135 & 108.0 & -0.23 & [-0.299, 0.236] & $0.8161$ & $1.0000$ \\
-F1\_Regime & \texttt{Bag\_STLSQ\_Poly:Group\_B\_NonPolynomial} & -0.226 & 0.135 & 108.0 & -1.68 & [-0.494, 0.041] & $0.0967$ & $1.0000$ \\
-F1\_Regime & \texttt{BGLM\_Oracle\_Basis:Group\_C\_HighDim} & -0.005 & 0.230 & 108.0 & -0.02 & [-0.461, 0.451] & $0.9829$ & $1.0000$ \\
-F1\_Regime & \texttt{BGLM\_Overcomplete:Group\_C\_HighDim} & -0.143 & 0.230 & 108.0 & -0.62 & [-0.599, 0.314] & $0.5367$ & $1.0000$ \\
-F1\_Regime & \texttt{BGLM\_Poly\_Basis:Group\_C\_HighDim} & -0.004 & 0.230 & 108.0 & -0.02 & [-0.461, 0.452] & $0.9848$ & $1.0000$ \\
-F1\_Regime & \texttt{BGNLM\_Hybrid\_Poly:Group\_C\_HighDim} & 0.058 & 0.230 & 108.0 & 0.25 & [-0.399, 0.514] & $0.8026$ & $1.0000$ \\
-F1\_Regime & \texttt{BGNLM\_IWSM\_Untuned:Group\_C\_HighDim} & -0.466 & 0.230 & 108.0 & -2.03 & [-0.922, -0.010] & $0.0453$ & $1.0000$ \\
-F1\_Regime & \texttt{SINDy\_RatPoly2:Group\_C\_HighDim} & 0.276 & 0.230 & 108.0 & 1.20 & [-0.180, 0.733] & $0.2323$ & $1.0000$ \\
-F1\_Regime & \texttt{SINDy\_STLSQ\_Oracle:Group\_C\_HighDim} & -0.023 & 0.230 & 108.0 & -0.10 & [-0.479, 0.433] & $0.9203$ & $1.0000$ \\
-F1\_Regime & \texttt{SINDy\_STLSQ\_Poly:Group\_C\_HighDim} & -0.023 & 0.230 & 108.0 & -0.10 & [-0.479, 0.433] & $0.9203$ & $1.0000$ \\
-F1\_Regime & \texttt{SR\_Pool\_MDL:Group\_C\_HighDim} & -0.060 & 0.230 & 108.0 & -0.26 & [-0.516, 0.396] & $0.7955$ & $1.0000$ \\
-F1\_Regime & \texttt{SR\_Pool\_Pareto:Group\_C\_HighDim} & -0.056 & 0.230 & 108.0 & -0.24 & [-0.512, 0.400] & $0.8085$ & $1.0000$ \\
-F1\_Regime & \texttt{Bag\_STLSQ\_Oracle:Group\_C\_HighDim} & -0.098 & 0.230 & 108.0 & -0.43 & [-0.554, 0.358] & $0.6710$ & $1.0000$ \\
-F1\_Regime & \texttt{Bag\_STLSQ\_Poly:Group\_C\_HighDim} & -0.098 & 0.230 & 108.0 & -0.43 & [-0.554, 0.358] & $0.6710$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{(Intercept)} & 0.637 & 0.104 & 17.3 & 6.15 & [0.419, 0.856] & $< 10^{-4}$ & $0.0004$ \\
+$F_1$ Interaction & \texttt{BGLM\_Oracle\_Basis} & -0.030 & 0.081 & 108.0 & -0.37 & [-0.190, 0.130] & $0.7124$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{BGLM\_Overcomplete} & -0.241 & 0.081 & 108.0 & -2.98 & [-0.401, -0.081] & $0.0036$ & $0.1181$ \\
+$F_1$ Interaction & \texttt{BGLM\_Poly\_Basis} & -0.030 & 0.081 & 108.0 & -0.37 & [-0.190, 0.130] & $0.7087$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{BGNLM\_Hybrid\_Poly} & -0.073 & 0.081 & 108.0 & -0.90 & [-0.233, 0.087] & $0.3685$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{BGNLM\_IWSM\_Untuned} & -0.195 & 0.081 & 108.0 & -2.41 & [-0.355, -0.035] & $0.0177$ & $0.5478$ \\
+$F_1$ Interaction & \texttt{SINDy\_RatPoly2} & -0.402 & 0.081 & 108.0 & -4.97 & [-0.562, -0.241] & $< 10^{-4}$ & $< 10^{-4}$ \\
+$F_1$ Interaction & \texttt{SINDy\_STLSQ\_Oracle} & -0.148 & 0.081 & 108.0 & -1.84 & [-0.309, 0.012] & $0.0691$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{SINDy\_STLSQ\_Poly} & -0.148 & 0.081 & 108.0 & -1.84 & [-0.309, 0.012] & $0.0691$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{SR\_Pool\_MDL} & -0.328 & 0.081 & 108.0 & -4.06 & [-0.488, -0.168] & $< 10^{-4}$ & $0.0034$ \\
+$F_1$ Interaction & \texttt{SR\_Pool\_Pareto} & -0.341 & 0.081 & 108.0 & -4.22 & [-0.502, -0.181] & $< 10^{-4}$ & $0.0019$ \\
+$F_1$ Interaction & \texttt{Bag\_STLSQ\_Oracle} & -0.269 & 0.081 & 108.0 & -3.32 & [-0.429, -0.109] & $0.0012$ & $0.0423$ \\
+$F_1$ Interaction & \texttt{Bag\_STLSQ\_Poly} & -0.269 & 0.081 & 108.0 & -3.32 & [-0.429, -0.109] & $0.0012$ & $0.0423$ \\
+$F_1$ Interaction & \texttt{Group\_B\_NonPolynomial} & -0.062 & 0.172 & 17.2 & -0.36 & [-0.424, 0.299] & $0.7207$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{Group\_C\_HighDim} & 0.120 & 0.293 & 17.2 & 0.41 & [-0.497, 0.737] & $0.6863$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{log10\_Noise} & -0.069 & 0.001 & 8386.0 & -73.02 & [-0.070, -0.067] & $< 10^{-4}$ & $< 10^{-4}$ \\
+$F_1$ Interaction & \texttt{log10\_N} & 0.054 & 0.002 & 8386.7 & 28.54 & [0.050, 0.057] & $< 10^{-4}$ & $< 10^{-4}$ \\
+$F_1$ Interaction & \texttt{BGLM\_Oracle\_Basis:Group\_B\_NonPolynomial} & 0.111 & 0.134 & 108.0 & 0.83 & [-0.155, 0.376] & $0.4103$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{BGLM\_Overcomplete:Group\_B\_NonPolynomial} & 0.053 & 0.134 & 108.0 & 0.40 & [-0.212, 0.319] & $0.6916$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{BGLM\_Poly\_Basis:Group\_B\_NonPolynomial} & -0.350 & 0.134 & 108.0 & -2.61 & [-0.616, -0.085] & $0.0102$ & $0.3280$ \\
+$F_1$ Interaction & \texttt{BGNLM\_Hybrid\_Poly:Group\_B\_NonPolynomial} & -0.113 & 0.134 & 108.0 & -0.84 & [-0.378, 0.153] & $0.4031$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{BGNLM\_IWSM\_Untuned:Group\_B\_NonPolynomial} & -0.170 & 0.134 & 108.0 & -1.27 & [-0.436, 0.096] & $0.2073$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{SINDy\_RatPoly2:Group\_B\_NonPolynomial} & -0.089 & 0.134 & 108.0 & -0.66 & [-0.354, 0.177] & $0.5096$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{SINDy\_STLSQ\_Oracle:Group\_B\_NonPolynomial} & -0.011 & 0.134 & 108.0 & -0.08 & [-0.277, 0.255] & $0.9349$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{SINDy\_STLSQ\_Poly:Group\_B\_NonPolynomial} & -0.306 & 0.134 & 108.0 & -2.28 & [-0.572, -0.040] & $0.0244$ & $0.7331$ \\
+$F_1$ Interaction & \texttt{SR\_Pool\_MDL:Group\_B\_NonPolynomial} & 0.110 & 0.134 & 108.0 & 0.82 & [-0.156, 0.375] & $0.4157$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{SR\_Pool\_Pareto:Group\_B\_NonPolynomial} & 0.100 & 0.134 & 108.0 & 0.75 & [-0.165, 0.366] & $0.4554$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{Bag\_STLSQ\_Oracle:Group\_B\_NonPolynomial} & -0.045 & 0.134 & 108.0 & -0.34 & [-0.311, 0.220] & $0.7350$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{Bag\_STLSQ\_Poly:Group\_B\_NonPolynomial} & -0.240 & 0.134 & 108.0 & -1.79 & [-0.506, 0.025] & $0.0759$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{BGLM\_Oracle\_Basis:Group\_C\_HighDim} & -0.005 & 0.229 & 108.0 & -0.02 & [-0.458, 0.448] & $0.9831$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{BGLM\_Overcomplete:Group\_C\_HighDim} & -0.143 & 0.229 & 108.0 & -0.62 & [-0.596, 0.311] & $0.5341$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{BGLM\_Poly\_Basis:Group\_C\_HighDim} & -0.004 & 0.229 & 108.0 & -0.02 & [-0.457, 0.449] & $0.9850$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{BGNLM\_Hybrid\_Poly:Group\_C\_HighDim} & 0.058 & 0.229 & 108.0 & 0.25 & [-0.395, 0.511] & $0.8011$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{BGNLM\_IWSM\_Untuned:Group\_C\_HighDim} & -0.466 & 0.229 & 108.0 & -2.04 & [-0.919, -0.013] & $0.0439$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{SINDy\_RatPoly2:Group\_C\_HighDim} & 0.264 & 0.229 & 108.0 & 1.16 & [-0.189, 0.718] & $0.2498$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{SINDy\_STLSQ\_Oracle:Group\_C\_HighDim} & -0.023 & 0.229 & 108.0 & -0.10 & [-0.476, 0.430] & $0.9200$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{SINDy\_STLSQ\_Poly:Group\_C\_HighDim} & -0.023 & 0.229 & 108.0 & -0.10 & [-0.476, 0.430] & $0.9200$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{SR\_Pool\_MDL:Group\_C\_HighDim} & -0.060 & 0.229 & 108.0 & -0.26 & [-0.513, 0.393] & $0.7942$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{SR\_Pool\_Pareto:Group\_C\_HighDim} & -0.056 & 0.229 & 108.0 & -0.24 & [-0.509, 0.397] & $0.8076$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{Bag\_STLSQ\_Oracle:Group\_C\_HighDim} & -0.098 & 0.229 & 108.0 & -0.43 & [-0.551, 0.355] & $0.6691$ & $1.0000$ \\
+$F_1$ Interaction & \texttt{Bag\_STLSQ\_Poly:Group\_C\_HighDim} & -0.098 & 0.229 & 108.0 & -0.43 & [-0.551, 0.355] & $0.6691$ & $1.0000$ \\
 \bottomrule
-\end{tabular}%
-}
+\end{tabular}
 \end{table*}

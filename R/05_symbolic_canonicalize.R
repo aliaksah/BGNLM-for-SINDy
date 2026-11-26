@@ -16,11 +16,9 @@ preprocess_math_string <- function(expr_str) {
   s <- gsub("x_([0-9]+)", "x\\1", s)
   # Python power ** to ^
   s <- gsub("\\*\\*", "^", s)
-  # Normalize function aliases
+  # Normalize function aliases (note: sin_deg/cos_deg compute degrees, NOT radians, so never alias them to sin/cos)
   s <- gsub("\\bsin_rad\\b", "sin", s)
   s <- gsub("\\bcos_rad\\b", "cos", s)
-  s <- gsub("\\bsin_deg\\b", "sin", s)
-  s <- gsub("\\bcos_deg\\b", "cos", s)
   s <- gsub("\\bsqroot\\b", "sqrt", s)
   s <- gsub("\\bp05\\b", "sqrt", s)
   s <- gsub("\\bsquare\\b", "p2", s)
@@ -298,6 +296,18 @@ canonicalize_single_expression <- function(expr_str) {
   atoms <- extract_canonical_atoms(expr_str)
   if (length(atoms) == 0L) return("1")
   paste(atoms, collapse = "+")
+}
+
+#' Normalize rational complements modulo intercept symmetrically across all methods:
+#' x^2 / (1 + x^2) = 1 - 1 / (1 + x^2) and x / (1 + x) = 1 - 1 / (1 + x).
+normalize_modulo_intercept <- function(atoms) {
+  if (length(atoms) == 0L) return(character(0))
+  out <- vapply(atoms, function(a) {
+    a1 <- sub("^(x[0-9]+)\\^2/\\(1\\+\\1\\^2\\)$", "1/(1+\\1^2)", a)
+    a2 <- sub("^(x[0-9]+)/\\(1\\+\\1\\)$", "1/(1+\\1)", a1)
+    a2
+  }, character(1), USE.NAMES = FALSE)
+  sort(unique(out))
 }
 
 #' Extract canonical basis atoms (excluding intercept "1") from a feature or equation string

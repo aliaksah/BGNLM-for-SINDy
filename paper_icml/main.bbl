@@ -1,4 +1,4 @@
-\begin{thebibliography}{27}
+\begin{thebibliography}{29}
 \providecommand{\natexlab}[1]{#1}
 \providecommand{\url}[1]{\texttt{#1}}
 \expandafter\ifx\csname urlstyle\endcsname\relax
@@ -15,6 +15,11 @@ Douglas Bates, Martin M{\"a}chler, Ben Bolker, and Steve Walker.
 \newblock Fitting linear mixed-effects models using {lme4}.
 \newblock \emph{Journal of Statistical Software}, 67\penalty0 (1):\penalty0 1--48, 2015.
 
+\bibitem[Brooks et~al.(2017)Brooks, Kristensen, van Benthem, Magnusson, Berg, Nielsen, Skaug, M{\"a}chler, and Bolker]{brooks2017glmmtmb}
+Mollie~E Brooks, Kasper Kristensen, Koen~J van Benthem, Arni Magnusson, Casper~W Berg, Anders Nielsen, Hans~J Skaug, Martin M{\"a}chler, and Benjamin~M Bolker.
+\newblock {glmmTMB} balances speed and flexibility among packages for zero-inflated generalized linear mixed modeling.
+\newblock \emph{The R Journal}, 9\penalty0 (2):\penalty0 378--400, 2017.
+
 \bibitem[Brunton et~al.(2016)Brunton, Proctor, and Kutz]{brunton2016discovering}
 Steven~L Brunton, Joshua~L Proctor, and J~Nathan Kutz.
 \newblock Discovering governing equations from data by sparse identification of nonlinear dynamical systems.
@@ -25,15 +30,25 @@ Bogdan Burlacu, Gabriel Kronberger, and Michael Kommenda.
 \newblock Operon {C++}: an efficient genetic programming framework for symbolic regression.
 \newblock In \emph{Proceedings of the 2020 Genetic and Evolutionary Computation Conference Companion}, pages 1562--1570, 2020.
 
-\bibitem[Chartrand(2011)]{chartrand2011numerical}
-Rick Chartrand.
-\newblock Numerical differentiation of noisy, nonsmooth data.
-\newblock \emph{ISRN Applied Mathematics}, 2011:\penalty0 164564, 2011.
+\bibitem[Champion et~al.(2019)Champion, Lusch, Kutz, and Brunton]{champion2019data}
+Kathleen Champion, Bethany Lusch, J~Nathan Kutz, and Steven~L Brunton.
+\newblock Data-driven discovery of coordinates and governing equations.
+\newblock \emph{Proceedings of the National Academy of Sciences}, 116\penalty0 (45):\penalty0 22445--22451, 2019.
+
+\bibitem[Clyde et~al.(2011)Clyde, Ghosh, and Littman]{clyde2011bayesian}
+Merlise~A Clyde, Joyee Ghosh, and Michael~L Littman.
+\newblock {Bayesian} adaptive sampling for variable selection and model averaging.
+\newblock \emph{Journal of Computational and Graphical Statistics}, 20\penalty0 (1):\penalty0 80--101, 2011.
 
 \bibitem[Cranmer(2023)]{cranmer2023interpretable}
 Miles Cranmer.
 \newblock Interpretable machine learning for science with {PySR} and {SymbolicRegression.jl}.
 \newblock \emph{arXiv preprint arXiv:2305.01582}, 2023.
+
+\bibitem[Cranmer et~al.(2020)Cranmer, Sanchez~Gonzalez, Battaglia, Xu, Cranmer, Spergel, and Ho]{cranmer2020discovering}
+Miles Cranmer, Alvaro Sanchez~Gonzalez, Peter Battaglia, Rui Xu, Kyle Cranmer, David Spergel, and Shirley Ho.
+\newblock Discovering symbolic models from deep learning with inductive biases.
+\newblock \emph{Advances in Neural Information Processing Systems}, 33:\penalty0 17429--17442, 2020.
 
 \bibitem[Dunnett(1955)]{dunnett1955multiple}
 Charles~W Dunnett.
@@ -45,11 +60,6 @@ Urban Fasel, J~Nathan Kutz, Bingni~W Brunton, and Steven~L Brunton.
 \newblock Ensemble-{SINDy}: Robust sparse model discovery in the low-data, high-noise limit, with active learning and control.
 \newblock \emph{Proceedings of the Royal Society A}, 478\penalty0 (2260):\penalty0 20210904, 2022.
 
-\bibitem[Gause(1934)]{gause1934struggle}
-Georgii~Frantsevich Gause.
-\newblock \emph{The Struggle for Existence}.
-\newblock Williams \& Wilkins, 1934.
-
 \bibitem[Hirsh et~al.(2022)Hirsh, Barajas-Solano, and Kutz]{hirsh2022sparsifying}
 Seth~M Hirsh, David~A Barajas-Solano, and J~Nathan Kutz.
 \newblock Sparsifying priors for {Bayesian} uncertainty quantification in model discovery.
@@ -59,6 +69,11 @@ Seth~M Hirsh, David~A Barajas-Solano, and J~Nathan Kutz.
 Aliaksandr Hubin.
 \newblock {Bayesian} generalized nonlinear models offer basis free {SINDy} with model uncertainty.
 \newblock \emph{arXiv preprint arXiv:2507.06776}, 2025.
+
+\bibitem[Hubin and Storvik(2018)]{hubin2018mode}
+Aliaksandr Hubin and Geir Storvik.
+\newblock Mode jumping {MCMC} for {Bayesian} variable selection in {GLMM}.
+\newblock \emph{Computational Statistics \& Data Analysis}, 127:\penalty0 281--297, 2018.
 
 \bibitem[Hubin et~al.(2021)Hubin, Storvik, and Frommlet]{hubin2021flexible}
 Aliaksandr Hubin, Geir Storvik, and Florian Frommlet.
@@ -75,6 +90,11 @@ Robert~E. Kass and Larry Wasserman.
 \newblock A reference {Bayesian} test for nested hypotheses and its relationship to the {Schwarz} criterion.
 \newblock \emph{Journal of the American Statistical Association}, 90\penalty0 (431):\penalty0 928--934, 1995.
 \newblock \doi{10.1080/01621459.1995.10476592}.
+
+\bibitem[Kubinec(2023)]{kubinec2023ordered}
+Robert Kubinec.
+\newblock Ordered beta regression: a parsimonious, well-fitting model for continuous data with lower and upper bounds.
+\newblock \emph{Political Analysis}, 31\penalty0 (4):\penalty0 519--536, 2023.
 
 \bibitem[Kuznetsova et~al.(2017)Kuznetsova, Brockhoff, and Christensen]{kuznetsova2017lmertest}
 Alexandra Kuznetsova, Per~B Brockhoff, and Rune H~B Christensen.
@@ -111,30 +131,20 @@ Sarah Nogueira, Konstantinos Sechidis, and Gavin Brown.
 \newblock On the stability of feature selection algorithms.
 \newblock \emph{Journal of Machine Learning Research}, 18\penalty0 (174):\penalty0 1--54, 2018.
 
-\bibitem[Odum(1953)]{odum1953fundamentals}
-Eugene~P Odum.
-\newblock \emph{Fundamentals of Ecology}.
-\newblock Saunders, 1953.
-
-\bibitem[Richard et~al.(1996)Richard, Bakker, Teusink, van Dam, and Westerhoff]{richard1996yeast}
-Peter Richard, Barbara~M Bakker, Bas Teusink, Karel van Dam, and Hans~V Westerhoff.
-\newblock Yeast cells with a specific cellular make-up and an environment that removes acetaldehyde are required for sustained glycolytic oscillations.
-\newblock \emph{European Journal of Biochemistry}, 235\penalty0 (1-2):\penalty0 238--241, 1996.
-
-\bibitem[Savitzky and Golay(1964)]{savitzky1964smoothing}
-Abraham Savitzky and Marcel J~E Golay.
-\newblock Smoothing and differentiation of data by simplified least squares procedures.
-\newblock \emph{Analytical Chemistry}, 36\penalty0 (8):\penalty0 1627--1639, 1964.
+\bibitem[Rudy et~al.(2017)Rudy, Brunton, Proctor, and Kutz]{rudy2017data}
+Samuel~H Rudy, Steven~L Brunton, Joshua~L Proctor, and J~Nathan Kutz.
+\newblock Data-driven discovery of partial differential equations.
+\newblock \emph{Science Advances}, 3\penalty0 (4):\penalty0 e1602614, 2017.
 
 \bibitem[Schmidt and Lipson(2009)]{schmidt2009distilling}
 Michael Schmidt and Hod Lipson.
 \newblock Distilling free-form natural laws from experimental data.
 \newblock \emph{Science}, 324\penalty0 (5923):\penalty0 81--85, 2009.
 
-\bibitem[Schoukens and Noel(2017)]{schoukens2017cascaded}
-Maarten Schoukens and Jean-Philippe Noel.
-\newblock Three benchmarks addressing open challenges in nonlinear system identification.
-\newblock \emph{IFAC-PapersOnLine}, 50\penalty0 (1):\penalty0 446--451, 2017.
+\bibitem[Udrescu and Tegmark(2020)]{udrescu2020ai}
+Silviu-Marian Udrescu and Max Tegmark.
+\newblock {AI Feynman}: A physics-inspired method for symbolic regression.
+\newblock \emph{Science Advances}, 6\penalty0 (16):\penalty0 eaay2631, 2020.
 
 \bibitem[Zellner(1986)]{zellner1986assessing}
 Arnold Zellner.

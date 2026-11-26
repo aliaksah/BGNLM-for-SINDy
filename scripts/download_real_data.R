@@ -27,20 +27,47 @@ prepare_lynx_hare <- function() {
      7.4,  8.0, 12.3, 19.5, 45.7, 51.1, 29.7, 15.8,  9.7, 10.1,  8.6
   )
 
+  # Always write authentic raw annual 1900-1920 Hudson Bay Company counts (N = 21) with zero interpolation
+  df_raw_lh <- data.frame(
+    time = as.numeric(years_core - years_core[1]),
+    year = as.integer(years_core),
+    x1 = as.numeric(hare_core),
+    x2 = as.numeric(lynx_core)
+  )
+  write.csv(df_raw_lh, "data/real_world/lynx_hare_annual_raw_1900_1920.csv", row.names = FALSE)
+  message("[OK] Wrote data/real_world/lynx_hare_annual_raw_1900_1920.csv (N = ", nrow(df_raw_lh), ")")
+
   if (Sys.getenv("USE_AUTHENTIC_EMPIRICAL", "0") == "1") {
-    # Authentic 1900-1920 Hudson Bay Company historical lynx-hare pelts (cubic-spline interpolated dt=0.25)
-    t_grid <- seq(0, 20, by = 0.25)
-    t_obs <- years_core - years_core[1]
-    sp_hare <- stats::spline(t_obs, hare_core, xout = t_grid, method = "natural")$y
-    sp_lynx <- stats::spline(t_obs, lynx_core, xout = t_grid, method = "natural")$y
-    df_auth <- data.frame(
-      time = round(t_grid, 4),
-      year = round(1900 + t_grid, 2),
-      x1 = round(pmax(1.0, sp_hare), 4),
-      x2 = round(pmax(1.0, sp_lynx), 4)
-    )
-    write.csv(df_auth, "data/real_world/lynx_hare_authentic_1900_1920.csv", row.names = FALSE)
-    message("[OK] Wrote data/real_world/lynx_hare_authentic_1900_1920.csv (N = ", nrow(df_auth), ")")
+    # Authentic Gause (1934) Mixture & Huffaker (1963) 60-week experimental predator-prey counts (from gauseR)
+    if (requireNamespace("gauseR", quietly = TRUE)) {
+      env_g <- new.env()
+      utils::data("huffaker_1963", package = "gauseR", envir = env_g)
+      hf <- env_g$huffaker_1963
+      hf60 <- hf[hf$Treatment == "60 weeks", ]
+      prey_df <- hf60[grepl("Prey", hf60$Species), c("Weeks", "Individuals")]
+      pred_df <- hf60[grepl("Predator", hf60$Species), c("Weeks", "Individuals")]
+      m_hf <- merge(prey_df, pred_df, by = "Weeks", suffixes = c("_prey", "_pred"))
+      m_hf <- m_hf[order(m_hf$Weeks), ]
+      df_hf <- data.frame(
+        time = as.numeric(m_hf$Weeks),
+        x1 = as.numeric(m_hf$Individuals_prey),
+        x2 = as.numeric(m_hf$Individuals_pred)
+      )
+      write.csv(df_hf, "data/real_world/huffaker_predator_prey_authentic.csv", row.names = FALSE)
+      message("[OK] Wrote data/real_world/huffaker_predator_prey_authentic.csv (N = ", nrow(df_hf), ")")
+
+      utils::data("gause_1934_book_f22", package = "gauseR", envir = env_g)
+      f22 <- env_g$gause_1934_book_f22
+      f22m <- f22[f22$Treatment == "Mixture", ]
+      f22m <- f22m[order(f22m$Day), ]
+      df_f22 <- data.frame(
+        time = as.numeric(f22m$Day),
+        x1 = as.numeric(f22m$Volume_Species1),
+        x2 = as.numeric(f22m$Volume_Species2)
+      )
+      write.csv(df_f22, "data/real_world/gause_paramecium_mixture_authentic.csv", row.names = FALSE)
+      message("[OK] Wrote data/real_world/gause_paramecium_mixture_authentic.csv (N = ", nrow(df_f22), ")")
+    }
   }
 
   # Extended multi-cycle Lotka-Volterra record (quasi-empirical noisy ODE, dt=0.25, N=201)
@@ -159,7 +186,7 @@ prepare_cascaded_tanks <- function() {
 prepare_yeast_glycolysis <- function() {
   set.seed(1999)
   n_obs <- 300
-  times <- seq(0, 30, length.out = n_obs)
+  times <- seq(0, 50, length.out = n_obs)
   glyco_rhs <- function(t, s, p) {
     x1 <- max(s[1], 1e-4)
     x2 <- max(s[2], 1e-4)
@@ -168,9 +195,10 @@ prepare_yeast_glycolysis <- function() {
     dx2 <- p["c3"] * x1 - p["c4"] * x2 + p["c2"] * hill_term
     list(c(dx1, dx2))
   }
-  parms_gly <- c(v0 = 0.75, c1 = 0.15, c2 = 1.80, c3 = 0.20, c4 = 0.85)
+  # Sustained Hopf limit-cycle oscillatory glycolysis parameters across full [0, 50] horizon
+  parms_gly <- c(v0 = 0.45, c1 = 0.03, c2 = 1.20, c3 = 0.03, c4 = 0.90)
   sol <- as.data.frame(deSolve::ode(
-    y = c(x1 = 1.6, x2 = 0.8), times = times, func = glyco_rhs, parms = parms_gly, method = "lsoda"
+    y = c(x1 = 1.2, x2 = 0.5), times = times, func = glyco_rhs, parms = parms_gly, method = "lsoda"
   ))
   df <- data.frame(
     time = round(times, 4),

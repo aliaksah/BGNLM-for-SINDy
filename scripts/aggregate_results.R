@@ -37,13 +37,23 @@ aggregate_suite <- function(suite = c("synth", "real")) {
   dt <- rbindlist(rows_list, fill = TRUE)
   setorder(dt, task_id)
 
+  # Ensure failed runs never receive zero-complexity/zero-FDR bonuses
+  if ("Status" %in% names(dt)) {
+    dt[Status != "OK", `:=`(
+      FDR = NA_real_,
+      OC = NA_integer_,
+      SHD = NA_integer_,
+      n_active_terms = NA_integer_
+    )]
+  }
+
   out_rds <- file.path("results/aggregated", paste0(suite, "_results.rds"))
   out_csv <- file.path("results/aggregated", paste0(suite, "_results.csv"))
   saveRDS(dt, out_rds)
   fwrite(dt, out_csv)
   message("[OK] Aggregated ", nrow(dt), " tasks for suite '", suite, "' -> ", out_csv)
 
-  # Compute selection stability (Jaccard & Nogueira) across seeds/folds per condition x Method
+  # Compute selection stability (Jaccard & Nogueira) across successful replications per condition x Method
   split_sets <- function(s_vec) {
     lapply(s_vec, function(s) {
       if (is.na(s) || !nzchar(s)) character(0) else strsplit(s, ";", fixed = TRUE)[[1]]
@@ -52,8 +62,9 @@ aggregate_suite <- function(suite = c("synth", "real")) {
 
   if (suite == "synth") {
     stab_dt <- dt[, {
-      sets <- split_sets(Discovered_Atoms)
-      nog <- compute_nogueira_stability(sets)
+      ok_idx <- which(Status == "OK")
+      sets <- split_sets(Discovered_Atoms[ok_idx])
+      nog <- compute_nogueira_stability(sets, d_total = 100L)
       .(
         n_reps = .N,
         Mean_TPR = mean(TPR, na.rm = TRUE),
@@ -78,8 +89,9 @@ aggregate_suite <- function(suite = c("synth", "real")) {
     fwrite(stab_dt, "results/aggregated/synth_cell_summary_stability.csv")
   } else {
     stab_dt <- dt[, {
-      sets <- split_sets(Discovered_Atoms)
-      nog <- compute_nogueira_stability(sets)
+      ok_idx <- which(Status == "OK")
+      sets <- split_sets(Discovered_Atoms[ok_idx])
+      nog <- compute_nogueira_stability(sets, d_total = 100L)
       .(
         n_folds = .N,
         Mean_TPR = mean(TPR, na.rm = TRUE),

@@ -114,6 +114,11 @@ m <- ncol(task_data$Y_train)
 if (is.null(fit_res)) {
   discovered_empty <- replicate(m, character(0), simplify = FALSE)
   st_metrics <- compute_structure_metrics(discovered_empty, task_data$system$ground_truth)
+  # Do NOT reward crashed runs with FDR=0, OC=0, SHD=0; mark missing structure as NA
+  st_metrics$FDR <- NA_real_
+  st_metrics$OC <- NA_integer_
+  st_metrics$SHD <- NA_integer_
+  st_metrics$n_active_terms <- NA_integer_
   pip_brier <- NA_real_
   pred_tr <- list(R2_clipped = 0.0, R2_raw = 0.0, NRMSE = 1.0, log10_RMSE = 0.0)
   pred_in <- list(R2_clipped = 0.0, R2_raw = 0.0, NRMSE = 1.0, log10_RMSE = 0.0, Coverage_95 = NA_real_, Winkler_95 = NA_real_)

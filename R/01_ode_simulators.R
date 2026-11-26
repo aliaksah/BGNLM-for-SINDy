@@ -516,38 +516,89 @@ estimate_derivatives_sgolay_spline <- function(X, times, sg_p = 3, sg_n = 7) {
 }
 
 #' Total Variation Regularized Differentiation (Chartrand 2011 TVRegDiff in R)
-estimate_derivatives_tvregdiff <- function(X, times, alpha = 1e-2, n_iter = 15) {
-  dt <- median(diff(times))
+#' Solves the 1D anti-differentiation inverse problem:
+#'   min_u  0.5 * || A u - (x - x[1]) ||_2^2 + alpha * sum_i sqrt((u[i+1] - u[i])^2 + eps^2)
+#' where A is the cumulative trapezoidal integration operator.
+estimate_derivatives_tvregdiff <- function(X, times, alpha = 0.05, n_iter = 15L) {
+  X <- as.matrix(X)
   n_obs <- nrow(X)
   m <- ncol(X)
-  dX <- matrix(0, nrow = n_obs, ncol = m)
+  dX <- matrix(0.0, nrow = n_obs, ncol = m)
   colnames(dX) <- paste0("d", colnames(X))
+  if (n_obs < 3L) return(dX)
+
+  solve_tv_1d <- function(x_col, t_col) {
+    n <- length(x_col)
+    if (n < 3L) return(rep(0.0, n))
+    dt_vec <- diff(t_col)
+    dt_med <- stats::median(dt_vec)
+    # Central difference initialization
+    du <- numeric(n)
+    du[1] <- (x_col[2] - x_col[1]) / max(dt_vec[1], 1e-8)
+    du[n] <- (x_col[n] - x_col[n - 1L]) / max(dt_vec[n - 1L], 1e-8)
+    du[2:(n - 1L)] <- (x_col[3:n] - x_col[1:(n - 2L)]) / pmax(t_col[3:n] - t_col[1:(n - 2L)], 1e-8)
+
+    # Cumulative trapezoidal operator A (n x n)
+    A <- matrix(0.0, nrow = n, ncol = n)
+    for (i in 2:n) {
+      h_i <- 0.5 * dt_vec[i - 1L]
+      A[i:n, i - 1L] <- A[i:n, i - 1L] + h_i
+      A[i:n, i] <- A[i:n, i] + h_i
+    }
+    AtA <- crossprod(A)
+    b_rhs <- crossprod(A, x_col - x_col[1])
+    # Scale alpha proportionally to trajectory variance and step size
+    y_scale <- max(stats::sd(x_col), 1e-6)
+    alpha_eff <- alpha * y_scale * max(dt_med, 1e-4)
+    eps_tv <- 1e-4 * max(stats::sd(du), 1e-6)
+
+    for (iter in seq_len(n_iter)) {
+      d1 <- diff(du)
+      w <- 1.0 / sqrt(d1^2 + eps_tv^2)
+      # Build L = D^T W D + tiny ridge for strict SPD
+      L <- matrix(0.0, nrow = n, ncol = n)
+      diag_L <- numeric(n)
+      diag_L[1:(n - 1L)] <- diag_L[1:(n - 1L)] + w
+      diag_L[2:n] <- diag_L[2:n] + w
+      diag(L) <- diag_L
+      L[cbind(1:(n - 1L), 2:n)] <- -w
+      L[cbind(2:n, 1:(n - 1L))] <- -w
+      H <- AtA + alpha_eff * L + diag(1e-9, n)
+      du_new <- tryCatch(solve(H, b_rhs), error = function(e) du)
+      if (all(is.finite(du_new))) du <- du_new
+    }
+    du
+  }
 
   for (j in seq_len(m)) {
-    u <- X[, j]
-    # Initialize with central difference
-    du <- numeric(n_obs)
-    du[1] <- (u[2] - u[1]) / dt
-    du[n_obs] <- (u[n_obs] - u[n_obs - 1]) / dt
-    if (n_obs > 2) {
-      du[2:(n_obs - 1)] <- (u[3:n_obs] - u[1:(n_obs - 2)]) / (2 * dt)
+    x_col <- X[, j]
+    if (n_obs <= 450L) {
+      dX[, j] <- solve_tv_1d(x_col, times)
+    } else {
+      # Chunk with 30-point overlap for O(n) scaling on long trajectories
+      blk <- 300L
+      ov <- 30L
+      du_accum <- numeric(n_obs)
+      wt_accum <- numeric(n_obs)
+      starts <- seq(1L, n_obs, by = blk - ov)
+      for (s0 in starts) {
+        s1 <- min(n_obs, s0 + blk - 1L)
+        if (s1 - s0 + 1L < 4L) next
+        seg_du <- solve_tv_1d(x_col[s0:s1], times[s0:s1])
+        w_loc <- rep(1.0, s1 - s0 + 1L)
+        if (s0 > 1L) {
+          k_ramp <- min(ov, length(w_loc))
+          w_loc[seq_len(k_ramp)] <- seq(0.1, 1.0, length.out = k_ramp)
+        }
+        if (s1 < n_obs) {
+          k_ramp <- min(ov, length(w_loc))
+          w_loc[(length(w_loc) - k_ramp + 1L):length(w_loc)] <- seq(1.0, 0.1, length.out = k_ramp)
+        }
+        du_accum[s0:s1] <- du_accum[s0:s1] + w_loc * seg_du
+        wt_accum[s0:s1] <- wt_accum[s0:s1] + w_loc
+      }
+      dX[, j] <- du_accum / pmax(wt_accum, 1e-8)
     }
-    # Iterative TV-penalized tridiagonal smoothing of derivative
-    eps_tv <- 1e-4 * max(sd(du), 1e-6)
-    for (iter in seq_len(n_iter)) {
-      d2 <- diff(du)
-      w <- 1.0 / sqrt(d2^2 + eps_tv^2)
-      # Build penalized normal equations: (I + alpha * D^T W D) du_new = du_init
-      diag_main <- rep(1.0, n_obs)
-      diag_main[1:(n_obs - 1)] <- diag_main[1:(n_obs - 1)] + alpha * w
-      diag_main[2:n_obs] <- diag_main[2:n_obs] + alpha * w
-      off_diag <- -alpha * w
-      M <- diag(diag_main)
-      M[cbind(1:(n_obs - 1), 2:n_obs)] <- off_diag
-      M[cbind(2:n_obs, 1:(n_obs - 1))] <- off_diag
-      du <- tryCatch(solve(M, du), error = function(e) du)
-    }
-    dX[, j] <- du
   }
   dX
 }
@@ -715,6 +766,7 @@ generate_synthetic_task_data <- function(
     noise_eta = noise_eta,
     noise_regime = noise_regime,
     noise_sd_vec = noise_sd_vec,
+    t_train = t_vec[idx_train],
     X_train = X_train,
     Y_train = Y_train,
     Y_train_clean = Y_clean[idx_train, , drop = FALSE],

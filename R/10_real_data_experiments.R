@@ -122,13 +122,6 @@ generate_real_task_data <- function(
   X_states <- as.matrix(df[, ds$state_names, drop = FALSE])
   X_features <- as.matrix(df[, ds$feature_names, drop = FALSE])
 
-  # Estimate derivatives on full series using specified differentiation scheme
-  if (diff_method == "sgolay_spline") {
-    Y_est <- estimate_derivatives_sgolay_spline(X_states, times)
-  } else {
-    Y_est <- estimate_derivatives_tvregdiff(X_states, times)
-  }
-
   n_total <- nrow(X_features)
   # Rolling expanding-window cutoff around 70% train (varies between 65% and 75% across folds)
   set.seed(as.integer(seed))
@@ -137,13 +130,20 @@ generate_real_task_data <- function(
   idx_train_pool <- seq_len(n_train_window)
   idx_ood <- seq(from = n_train_window + 1L, to = n_total)
 
+  # ZERO PRE-SPLIT LEAKAGE: differentiate training window and OOD window strictly separately
+  diff_fn <- if (diff_method == "sgolay_spline") estimate_derivatives_sgolay_spline else estimate_derivatives_tvregdiff
+  Y_train_window <- diff_fn(X_states[idx_train_pool, , drop = FALSE], times[idx_train_pool])
+  Y_ood_window <- diff_fn(X_states[idx_ood, , drop = FALSE], times[idx_ood])
+
   # 85% subsample of training window for structural stability; remaining 15% serves as in-sample validation
   n_sub <- max(15L, floor(0.85 * length(idx_train_pool)))
-  idx_train <- sort(sample(idx_train_pool, size = n_sub, replace = FALSE))
-  idx_in <- setdiff(idx_train_pool, idx_train)
-  if (length(idx_in) < 3L) {
-    idx_in <- idx_train
+  idx_train_local <- sort(sample(seq_along(idx_train_pool), size = n_sub, replace = FALSE))
+  idx_in_local <- setdiff(seq_along(idx_train_pool), idx_train_local)
+  if (length(idx_in_local) < 3L) {
+    idx_in_local <- idx_train_local
   }
+  idx_train <- idx_train_pool[idx_train_local]
+  idx_in <- idx_train_pool[idx_in_local]
 
   # Rollout horizon on held-out OOD test window
   rollout_idx <- idx_ood[seq_len(min(length(idx_ood), 100L))]
@@ -167,15 +167,18 @@ generate_real_task_data <- function(
     fold_id = fold_id,
     seed = seed,
     N_train = length(idx_train),
+    t_train = times[idx_train],
+    t_seq = times[idx_train_pool],
+    X_seq = X_features[idx_train_pool, , drop = FALSE],
     X_train = X_features[idx_train, , drop = FALSE],
-    Y_train = Y_est[idx_train, , drop = FALSE],
-    Y_train_clean = Y_est[idx_train, , drop = FALSE],
+    Y_train = Y_train_window[idx_train_local, , drop = FALSE],
+    Y_train_clean = Y_train_window[idx_train_local, , drop = FALSE],
     X_test_in = X_features[idx_in, , drop = FALSE],
-    Y_test_in_clean = Y_est[idx_in, , drop = FALSE],
-    Y_test_in_noisy = Y_est[idx_in, , drop = FALSE],
+    Y_test_in_clean = Y_train_window[idx_in_local, , drop = FALSE],
+    Y_test_in_noisy = Y_train_window[idx_in_local, , drop = FALSE],
     X_test_ood = X_features[idx_ood, , drop = FALSE],
-    Y_test_ood_clean = Y_est[idx_ood, , drop = FALSE],
-    Y_test_ood_noisy = Y_est[idx_ood, , drop = FALSE],
+    Y_test_ood_clean = Y_ood_window,
+    Y_test_ood_noisy = Y_ood_window,
     rollout = list(
       times = rollout_times,
       X_true = X_states[rollout_idx, , drop = FALSE],
