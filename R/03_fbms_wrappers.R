@@ -78,7 +78,7 @@ get_tuned_bgnlm_config <- function(N_obs = 500L, p_cov = 3L) {
       p_new = 0.10,
       pop_max = 20L,
       max_depth_D = 2L,
-      P_generations = 15L,
+      P_generations = 12L,
       N_mcmc = 500L,
       runs = 6L,
       transforms_tier = "transforms_extended"

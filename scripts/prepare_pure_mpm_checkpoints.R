@@ -1,14 +1,18 @@
 #!/usr/bin/env Rscript
 # ==============================================================================
 # scripts/prepare_pure_mpm_checkpoints.R
-# Removes ONLY old cached task_*.rds checkpoints belonging to the methods whose
-# code changed (removing post-MPM 0.025 energy pruning, plus optional IWSM /
-# audited baselines), guarded by a one-time marker so interrupted reruns can
-# safely resume via scripts/run_remote_server.sh without re-deleting new runs.
+# Removes cached task_*.rds checkpoints belonging to the methods targeted for
+# Pure-MPM & audited-baseline re-execution, guarded by a one-time marker so
+# interrupted reruns resume cleanly via scripts/run_remote_server.sh without
+# re-deleting newly completed checkpoints.
 #
-# Usage:
-#   Rscript scripts/prepare_pure_mpm_checkpoints.R --suite synth --scope fbms5
-#   Rscript scripts/prepare_pure_mpm_checkpoints.R --suite real --scope fbms5_plus_audited
+# Scopes:
+#   audited_all   : All 13 methods (Pure-MPM FBMS + IWSM + fixed Bag_STLSQ + deg-3 RatPoly + SR_Pool)
+#   fbms6_sindy5  : All 6 FBMS methods + all 5 SINDy baselines (92,400 synth tasks)
+#   fbms5_sindy5  : 5 0.025-affected FBMS methods + 5 SINDy baselines (84,000 synth tasks; skips IWSM)
+#   fbms6         : All 6 FBMS methods (50,400 synth tasks)
+#   fbms5         : Only the 5 methods that had 0.025 (42,000 synth tasks)
+#   all           : Alias for audited_all
 # ==============================================================================
 
 suppressPackageStartupMessages({
@@ -22,7 +26,7 @@ get_arg <- function(flag, default = NULL) {
 }
 
 suite <- get_arg("--suite", "both")
-scope <- get_arg("--scope", "fbms5")
+scope <- get_arg("--scope", "audited_all")
 dry_run <- "--dry_run" %in% args
 force_clear <- "--force" %in% args
 
@@ -43,7 +47,7 @@ scope_methods <- switch(
     "BGLM_Overcomplete",
     "BGNLM_IWSM_Untuned"
   ),
-  "fbms5_plus_audited" = c(
+  "fbms5_sindy5" = c(
     "BGNLM_Full_Tuned",
     "BGNLM_Hybrid_Poly",
     "BGLM_Oracle_Basis",
@@ -53,12 +57,24 @@ scope_methods <- switch(
     "SINDy_STLSQ_Poly",
     "UQ_SINDy_Oracle",
     "UQ_SINDy_Poly",
-    "SINDy_PI_Rational",
-    "SR_PySR",
-    "SR_Operon"
+    "SINDy_PI_Rational"
   ),
+  "fbms6_sindy5" = c(
+    "BGNLM_Full_Tuned",
+    "BGNLM_Hybrid_Poly",
+    "BGLM_Oracle_Basis",
+    "BGLM_Poly_Basis",
+    "BGLM_Overcomplete",
+    "BGNLM_IWSM_Untuned",
+    "SINDy_STLSQ_Oracle",
+    "SINDy_STLSQ_Poly",
+    "UQ_SINDy_Oracle",
+    "UQ_SINDy_Poly",
+    "SINDy_PI_Rational"
+  ),
+  "audited_all" = NULL,
   "all" = NULL,
-  stop("Unknown --scope: ", scope, " (expected fbms5, fbms6, fbms5_plus_audited, all)")
+  stop("Unknown --scope: ", scope, " (expected audited_all, fbms6_sindy5, fbms5_sindy5, fbms6, fbms5, all)")
 )
 
 clear_suite <- function(s) {

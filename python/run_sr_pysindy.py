@@ -357,6 +357,8 @@ def run_sr_task(method_id: str, data_payload: dict, strict_native: bool = False)
                     procs=1,
                     progress=False,
                     verbosity=0,
+                    temp_equation_file=True,
+                    delete_tempfiles=True,
                 )
                 model.fit(X_tr, yj, variable_names=col_names)
                 sym_expr = str(model.sympy())

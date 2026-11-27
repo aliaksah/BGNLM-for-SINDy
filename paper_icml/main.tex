@@ -127,7 +127,7 @@ Under a fixed finite chain budget $(P, N_{\text{MCMC}})$, a multi-term Taylor or
 \Require States $\boldsymbol{X}$, derivatives $\boldsymbol{Y}$, transforms $\mathcal{T}_{\text{ext}}$, $r=N^{-1}$.
 \State Filter zero-variance columns ($s_l \le 10^{-12}$) from $\boldsymbol{X}$.
 \For{each equation $j = 1, \dots, m$}
-  \State Run $R=6$ parallel GMJMCMC chains ($P=15, N_{\text{MCMC}}=500$, $p_{\text{gen}}=(0.55, 0.35, 0.00, 0.10)$, $D \le 2$, $\text{pop.max}=20$, unknown-$\sigma_j^2$ Jeffreys-BIC).
+  \State Run $R=6$ parallel GMJMCMC chains ($P=12, N_{\text{MCMC}}=500$, $p_{\text{gen}}=(0.55, 0.35, 0.00, 0.10)$, $D \le 2$, $\text{pop.max}=20$, unknown-$\sigma_j^2$ Jeffreys-BIC).
   \State Weight populations by marginal likelihood to obtain $\widehat{\text{PIP}}_{jk}$ and BMA predictive quantiles.
   \State Select the Median Probability Model $\hat{\mathcal{S}}_j^{\text{MPM}} = \{g_k : \widehat{\text{PIP}}_{jk} > 0.5\}$ and refit final OLS mean.
 \EndFor

@@ -10,7 +10,10 @@ suppressPackageStartupMessages({
   library(data.table)
 })
 
+source("R/05_symbolic_canonicalize.R")
 source("R/06_metrics_consistency.R")
+source("R/01_ode_simulators.R")
+source("R/10_real_data_experiments.R")
 
 dir.create("results/aggregated", recursive = TRUE, showWarnings = FALSE)
 dir.create("results/tables", recursive = TRUE, showWarnings = FALSE)
@@ -37,13 +40,50 @@ aggregate_suite <- function(suite = c("synth", "real")) {
   dt <- rbindlist(rows_list, fill = TRUE)
   setorder(dt, task_id)
 
-  # Ensure failed runs never receive zero-complexity/zero-FDR bonuses
-  if ("Status" %in% names(dt)) {
-    dt[Status != "OK", `:=`(
-      FDR = NA_real_,
-      OC = NA_integer_,
-      SHD = NA_integer_,
-      n_active_terms = NA_integer_
+  # Enforce audited canonicalization + failed-run NA scoring across all rows
+  reg <- if (suite == "synth") get_systems_registry() else get_real_datasets_registry()
+  for (i in seq_len(nrow(dt))) {
+    st <- if ("Status" %in% names(dt)) dt$Status[i] else "OK"
+    if (is.na(st) || st != "OK") {
+      dt[i, `:=`(
+        TPR = 0.0,
+        FDR = NA_real_,
+        F1 = 0.0,
+        Exact_Recovery = 0L,
+        SHD = NA_integer_,
+        OC = NA_integer_,
+        n_active_terms = NA_integer_
+      )]
+      next
+    }
+    key <- if (suite == "synth") as.character(dt$System[i]) else as.character(dt$Dataset[i])
+    if (!key %in% names(reg)) next
+    gt_list <- reg[[key]]$ground_truth
+    m_eq <- length(gt_list)
+    raw_str <- dt$Discovered_Atoms[i]
+    disc_list <- replicate(m_eq, character(0), simplify = FALSE)
+    if (!is.na(raw_str) && nzchar(raw_str)) {
+      toks <- strsplit(raw_str, ";", fixed = TRUE)[[1]]
+      for (tk in toks) {
+        if (grepl("^eq([0-9]+)::(.*)$", tk)) {
+          eq_i <- as.integer(sub("^eq([0-9]+)::(.*)$", "\\1", tk))
+          atom_i <- sub("^eq([0-9]+)::(.*)$", "\\2", tk)
+          if (eq_i >= 1L && eq_i <= m_eq) {
+            disc_list[[eq_i]] <- c(disc_list[[eq_i]], atom_i)
+          }
+        }
+      }
+    }
+    m_res <- compute_structure_metrics(disc_list, gt_list)
+    dt[i, `:=`(
+      TPR = m_res$TPR,
+      FDR = m_res$FDR,
+      F1 = m_res$F1,
+      Exact_Recovery = m_res$Exact_Recovery,
+      SHD = m_res$SHD,
+      OC = m_res$OC,
+      n_active_terms = m_res$n_active_terms,
+      Discovered_Atoms = paste(m_res$S_hat, collapse = ";")
     )]
   }
 
@@ -114,6 +154,10 @@ aggregate_suite <- function(suite = c("synth", "real")) {
   dt
 }
 
-aggregate_suite("synth")
-aggregate_suite("real")
+args_cli <- commandArgs(trailingOnly = TRUE)
+s_idx <- which(args_cli == "--suite")
+suite_req <- if (length(s_idx) > 0L && length(args_cli) > s_idx[1]) args_cli[s_idx[1] + 1L] else "both"
+
+if (suite_req %in% c("synth", "both")) aggregate_suite("synth")
+if (suite_req %in% c("real", "both")) aggregate_suite("real")
 

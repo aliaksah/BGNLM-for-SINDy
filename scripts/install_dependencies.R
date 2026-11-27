@@ -65,7 +65,7 @@ if (length(need_infra) > 0L) {
 # CRAN packages needed
 required_cran_pkgs <- c(
   "remotes", "deSolve", "glmnet", "signal", "data.table", "yaml", "jsonlite",
-  "lme4", "lmerTest", "glmmTMB", "emmeans", "broom.mixed",
+  "lme4", "lmerTest", "glmmTMB", "emmeans", "broom.mixed", "BAS",
   "ggplot2", "dplyr", "tidyr", "reticulate", "R.utils", "testthat"
 )
 

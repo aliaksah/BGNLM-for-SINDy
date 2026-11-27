@@ -1075,7 +1075,7 @@ get_tuned_bgnlm_config <- function(N_obs = 500L, p_cov = 3L) {
       p_new = 0.10,
       pop_max = 20L,
       max_depth_D = 2L,
-      P_generations = 15L,
+      P_generations = 12L,
       N_mcmc = 500L,
       runs = 6L,
       transforms_tier = "transforms_extended"
@@ -4956,7 +4956,7 @@ Under a fixed finite chain budget $(P, N_{\text{MCMC}})$, a multi-term Taylor or
 \Require States $\boldsymbol{X}$, derivatives $\boldsymbol{Y}$, transforms $\mathcal{T}_{\text{ext}}$, $r=N^{-1}$.
 \State Filter zero-variance columns ($s_l \le 10^{-12}$) from $\boldsymbol{X}$.
 \For{each equation $j = 1, \dots, m$}
-  \State Run $R=6$ parallel GMJMCMC chains ($P=15, N_{\text{MCMC}}=500$, $p_{\text{gen}}=(0.55, 0.35, 0.00, 0.10)$, $D \le 2$, $\text{pop.max}=20$, unknown-$\sigma_j^2$ Jeffreys-BIC).
+  \State Run $R=6$ parallel GMJMCMC chains ($P=12, N_{\text{MCMC}}=500$, $p_{\text{gen}}=(0.55, 0.35, 0.00, 0.10)$, $D \le 2$, $\text{pop.max}=20$, unknown-$\sigma_j^2$ Jeffreys-BIC).
   \State Weight populations by marginal likelihood to obtain $\widehat{\text{PIP}}_{jk}$ and BMA predictive quantiles.
   \State Select the Median Probability Model $\hat{\mathcal{S}}_j^{\text{MPM}} = \{g_k : \widehat{\text{PIP}}_{jk} > 0.5\}$ and refit final OLS mean.
 \EndFor
@@ -6024,6 +6024,8 @@ def run_sr_task(method_id: str, data_payload: dict, strict_native: bool = False)
                     procs=1,
                     progress=False,
                     verbosity=0,
+                    temp_equation_file=True,
+                    delete_tempfiles=True,
                 )
                 model.fit(X_tr, yj, variable_names=col_names)
                 sym_expr = str(model.sympy())
@@ -6604,7 +6606,10 @@ suppressPackageStartupMessages({
   library(data.table)
 })
 
+source("R/05_symbolic_canonicalize.R")
 source("R/06_metrics_consistency.R")
+source("R/01_ode_simulators.R")
+source("R/10_real_data_experiments.R")
 
 dir.create("results/aggregated", recursive = TRUE, showWarnings = FALSE)
 dir.create("results/tables", recursive = TRUE, showWarnings = FALSE)
@@ -6631,13 +6636,50 @@ aggregate_suite <- function(suite = c("synth", "real")) {
   dt <- rbindlist(rows_list, fill = TRUE)
   setorder(dt, task_id)
 
-  # Ensure failed runs never receive zero-complexity/zero-FDR bonuses
-  if ("Status" %in% names(dt)) {
-    dt[Status != "OK", `:=`(
-      FDR = NA_real_,
-      OC = NA_integer_,
-      SHD = NA_integer_,
-      n_active_terms = NA_integer_
+  # Enforce audited canonicalization + failed-run NA scoring across all rows
+  reg <- if (suite == "synth") get_systems_registry() else get_real_datasets_registry()
+  for (i in seq_len(nrow(dt))) {
+    st <- if ("Status" %in% names(dt)) dt$Status[i] else "OK"
+    if (is.na(st) || st != "OK") {
+      dt[i, `:=`(
+        TPR = 0.0,
+        FDR = NA_real_,
+        F1 = 0.0,
+        Exact_Recovery = 0L,
+        SHD = NA_integer_,
+        OC = NA_integer_,
+        n_active_terms = NA_integer_
+      )]
+      next
+    }
+    key <- if (suite == "synth") as.character(dt$System[i]) else as.character(dt$Dataset[i])
+    if (!key %in% names(reg)) next
+    gt_list <- reg[[key]]$ground_truth
+    m_eq <- length(gt_list)
+    raw_str <- dt$Discovered_Atoms[i]
+    disc_list <- replicate(m_eq, character(0), simplify = FALSE)
+    if (!is.na(raw_str) && nzchar(raw_str)) {
+      toks <- strsplit(raw_str, ";", fixed = TRUE)[[1]]
+      for (tk in toks) {
+        if (grepl("^eq([0-9]+)::(.*)$", tk)) {
+          eq_i <- as.integer(sub("^eq([0-9]+)::(.*)$", "\\1", tk))
+          atom_i <- sub("^eq([0-9]+)::(.*)$", "\\2", tk)
+          if (eq_i >= 1L && eq_i <= m_eq) {
+            disc_list[[eq_i]] <- c(disc_list[[eq_i]], atom_i)
+          }
+        }
+      }
+    }
+    m_res <- compute_structure_metrics(disc_list, gt_list)
+    dt[i, `:=`(
+      TPR = m_res$TPR,
+      FDR = m_res$FDR,
+      F1 = m_res$F1,
+      Exact_Recovery = m_res$Exact_Recovery,
+      SHD = m_res$SHD,
+      OC = m_res$OC,
+      n_active_terms = m_res$n_active_terms,
+      Discovered_Atoms = paste(m_res$S_hat, collapse = ";")
     )]
   }
 
@@ -6708,8 +6750,12 @@ aggregate_suite <- function(suite = c("synth", "real")) {
   dt
 }
 
-aggregate_suite("synth")
-aggregate_suite("real")
+args_cli <- commandArgs(trailingOnly = TRUE)
+s_idx <- which(args_cli == "--suite")
+suite_req <- if (length(s_idx) > 0L && length(args_cli) > s_idx[1]) args_cli[s_idx[1] + 1L] else "both"
+
+if (suite_req %in% c("synth", "both")) aggregate_suite("synth")
+if (suite_req %in% c("real", "both")) aggregate_suite("real")
 
 
 
@@ -7536,7 +7582,7 @@ if (length(need_infra) > 0L) {
 # CRAN packages needed
 required_cran_pkgs <- c(
   "remotes", "deSolve", "glmnet", "signal", "data.table", "yaml", "jsonlite",
-  "lme4", "lmerTest", "glmmTMB", "emmeans", "broom.mixed",
+  "lme4", "lmerTest", "glmmTMB", "emmeans", "broom.mixed", "BAS",
   "ggplot2", "dplyr", "tidyr", "reticulate", "R.utils", "testthat"
 )
 
@@ -7691,14 +7737,18 @@ message("[OK] Updated renv.lock.")
 #!/usr/bin/env Rscript
 # ==============================================================================
 # scripts/prepare_pure_mpm_checkpoints.R
-# Removes ONLY old cached task_*.rds checkpoints belonging to the methods whose
-# code changed (removing post-MPM 0.025 energy pruning, plus optional IWSM /
-# audited baselines), guarded by a one-time marker so interrupted reruns can
-# safely resume via scripts/run_remote_server.sh without re-deleting new runs.
+# Removes cached task_*.rds checkpoints belonging to the methods targeted for
+# Pure-MPM & audited-baseline re-execution, guarded by a one-time marker so
+# interrupted reruns resume cleanly via scripts/run_remote_server.sh without
+# re-deleting newly completed checkpoints.
 #
-# Usage:
-#   Rscript scripts/prepare_pure_mpm_checkpoints.R --suite synth --scope fbms5
-#   Rscript scripts/prepare_pure_mpm_checkpoints.R --suite real --scope fbms5_plus_audited
+# Scopes:
+#   audited_all   : All 13 methods (Pure-MPM FBMS + IWSM + fixed Bag_STLSQ + deg-3 RatPoly + SR_Pool)
+#   fbms6_sindy5  : All 6 FBMS methods + all 5 SINDy baselines (92,400 synth tasks)
+#   fbms5_sindy5  : 5 0.025-affected FBMS methods + 5 SINDy baselines (84,000 synth tasks; skips IWSM)
+#   fbms6         : All 6 FBMS methods (50,400 synth tasks)
+#   fbms5         : Only the 5 methods that had 0.025 (42,000 synth tasks)
+#   all           : Alias for audited_all
 # ==============================================================================
 
 suppressPackageStartupMessages({
@@ -7712,7 +7762,7 @@ get_arg <- function(flag, default = NULL) {
 }
 
 suite <- get_arg("--suite", "both")
-scope <- get_arg("--scope", "fbms5")
+scope <- get_arg("--scope", "audited_all")
 dry_run <- "--dry_run" %in% args
 force_clear <- "--force" %in% args
 
@@ -7733,7 +7783,7 @@ scope_methods <- switch(
     "BGLM_Overcomplete",
     "BGNLM_IWSM_Untuned"
   ),
-  "fbms5_plus_audited" = c(
+  "fbms5_sindy5" = c(
     "BGNLM_Full_Tuned",
     "BGNLM_Hybrid_Poly",
     "BGLM_Oracle_Basis",
@@ -7743,12 +7793,24 @@ scope_methods <- switch(
     "SINDy_STLSQ_Poly",
     "UQ_SINDy_Oracle",
     "UQ_SINDy_Poly",
-    "SINDy_PI_Rational",
-    "SR_PySR",
-    "SR_Operon"
+    "SINDy_PI_Rational"
   ),
+  "fbms6_sindy5" = c(
+    "BGNLM_Full_Tuned",
+    "BGNLM_Hybrid_Poly",
+    "BGLM_Oracle_Basis",
+    "BGLM_Poly_Basis",
+    "BGLM_Overcomplete",
+    "BGNLM_IWSM_Untuned",
+    "SINDy_STLSQ_Oracle",
+    "SINDy_STLSQ_Poly",
+    "UQ_SINDy_Oracle",
+    "UQ_SINDy_Poly",
+    "SINDy_PI_Rational"
+  ),
+  "audited_all" = NULL,
   "all" = NULL,
-  stop("Unknown --scope: ", scope, " (expected fbms5, fbms6, fbms5_plus_audited, all)")
+  stop("Unknown --scope: ", scope, " (expected audited_all, fbms6_sindy5, fbms5_sindy5, fbms6, fbms5, all)")
 )
 
 clear_suite <- function(s) {
@@ -8193,36 +8255,46 @@ set -euo pipefail
 
 # ==============================================================================
 # scripts/run_pure_mpm_ssh.sh
-# End-to-end Pure-MPM SSH rerun pipeline for nam-shub-01 (no SLURM required).
-# Runs fast suites first (tuning -> targeted ablation -> real -> synth),
-# safely clearing old pre-Pure-MPM checkpoints once per suite so restarts resume.
+# Audited Pure-MPM SSH Rerun Pipeline for nam-shub-01 (no SLURM required).
 #
-# Usage on nam-shub-01:
-#   nohup ./scripts/run_pure_mpm_ssh.sh [NUM_WORKERS=44] [SCOPE=fbms5] [SUITE=all] > run_pure_mpm.log 2>&1 &
+# Recommended launch on nam-shub-01 (56 cores):
+#   git pull origin ICML && nohup ./scripts/run_pure_mpm_ssh.sh 44 audited_all all > run_pure_mpm.log 2>&1 &
 #
 # Arguments:
-#   NUM_WORKERS : Concurrent xargs R workers for real/synth (default: 44 on 56-core server)
-#   SCOPE       : fbms5 (default, 5 methods that had 0.025) | fbms6 (+ IWSM) |
-#                 fbms5_plus_audited (5 FBMS + 7 non-FBMS audited baselines) | all
-#   SUITE       : all (default: tuning + ablation + real + synth) | fast (tuning + ablation + real) |
-#                 synth_only | real_only
+#   $1 NUM_WORKERS : Concurrent 1-thread R workers for real/synth (default: 44)
+#   $2 SYNTH_SCOPE : Checkpoint refresh scope for Experiment 1 (synth):
+#                    - audited_all (default, recommended): all 13 methods cleanly
+#                      (Pure-MPM FBMS + IWSM + fixed Bag_STLSQ + deg-3 RatPoly + SR_Pool)
+#                    - fbms5_sindy5: 5 FBMS methods + 5 SINDy baselines (skips IWSM to save ~8h)
+#                    - fbms6: all 6 FBMS methods only
+#                    - fbms5: only the 5 methods that previously had 0.025
+#                    (Note: Experiment 2 'real' ALWAYS clears 'all' 2,600 tasks (~45 min)
+#                     because post-split differentiation & sustained Yeast changed the data.)
+#   $3 SUITE       : all (default: tuning + ablation + real + synth) |
+#                    fast (tuning + ablation + real, ~1 hour total) |
+#                    synth_only | real_only
 # ==============================================================================
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
 NUM_WORKERS="${1:-44}"
-SCOPE="${2:-fbms5}"
+SYNTH_SCOPE="${2:-audited_all}"
 SUITE="${3:-all}"
-ABL_CORES="${ABL_CORES:-8}"
+ABL_CORES="${ABL_CORES:-6}"
+export TASK_TIMEOUT="${TASK_TIMEOUT:-1800}"
 
-# Load EasyBuild R module on nam-shub-01 if available (do NOT load Python module)
+export PATH="$HOME/.juliaup/bin:$HOME/.local/bin:$PATH"
+
+# Load EasyBuild R (and Julia if available) module on nam-shub-01 (do NOT load Python module)
 if command -v module >/dev/null 2>&1; then
   module load R/4.5.2-gfbf-2025b 2>/dev/null || true
+  module load Julia 2>/dev/null || true
 elif [ -f /etc/profile.d/modules.sh ]; then
   # shellcheck disable=SC1091
   source /etc/profile.d/modules.sh
   module load R/4.5.2-gfbf-2025b 2>/dev/null || true
+  module load Julia 2>/dev/null || true
 fi
 
 if ! command -v Rscript >/dev/null 2>&1; then
@@ -8242,8 +8314,6 @@ if [ -f "$REPO_ROOT/.venv/bin/activate" ]; then
   export PATH="$REPO_ROOT/.venv/bin:$PATH"
 fi
 
-export PYSR_USE_JULIA=1
-export PYOPERON_NATIVE=1
 export SINDY_LEGACY_UNSTD_THRESH=0
 export USE_AUTHENTIC_EMPIRICAL=1
 export OMP_NUM_THREADS=1
@@ -8254,34 +8324,54 @@ export JULIA_NUM_THREADS=1
 
 echo "========================================================================"
 echo "[PURE-MPM SSH] Starting run at $(date)"
-echo "  NUM_WORKERS=$NUM_WORKERS | SCOPE=$SCOPE | SUITE=$SUITE | ABL_CORES=$ABL_CORES"
+echo "  NUM_WORKERS=$NUM_WORKERS | SYNTH_SCOPE=$SYNTH_SCOPE | SUITE=$SUITE | ABL_CORES=$ABL_CORES | TASK_TIMEOUT=$TASK_TIMEOUT"
 echo "========================================================================"
 
+echo "[STEP 0/4] Bootstrapping & verifying server R (.r_lib) + Python (.venv) + Julia dependencies..."
+Rscript -e '
+  lib_t <- Sys.getenv("R_LIBS_USER")
+  if (!nzchar(lib_t) || !dir.exists(lib_t)) lib_t <- .libPaths()[1]
+  for (pkg in c("BAS", "gauseR", "glmmTMB")) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("[SETUP] Installing missing R package into ", lib_t, ": ", pkg)
+      try(install.packages(pkg, lib = lib_t, repos = "https://cloud.r-project.org"), silent = TRUE)
+    }
+  }
+'
+Rscript scripts/verify_env.R
+
 if [[ "$SUITE" == "all" || "$SUITE" == "fast" ]]; then
-  echo "[STEP 1/4] Updating authentic real-world datasets..."
+  echo "[STEP 1/4] Preparing real-world datasets (zero-leakage & sustained Yeast)..."
   Rscript scripts/download_real_data.R
 
-  echo "[STEP 2/4] Re-running BGNLM calibration tuning suite (Experiment 0)..."
+  echo "[STEP 2/4] Re-running BGNLM calibration tuning suite (Experiment 0, Pure MPM)..."
   Rscript scripts/run_tuning.R --full --cores "$ABL_CORES"
 
-  echo "[STEP 3/4] Re-running targeted ablation Jobs 1-4 (Pure MPM + Native PySR/PyOperon)..."
+  echo "[STEP 3/4] Re-running targeted ablation Jobs 1-4 (Pure MPM + Native PySR/PyOperon + BAS + WSINDy)..."
   ABLATION_JOBS="1,2,3,4" CORES="$ABL_CORES" ./scripts/run_targeted_ablation.sh "$ABL_CORES"
 fi
 
+# Note: In Experiments 1 & 2 (run_remote_server.sh across 44 workers), SR_Pool_Pareto & SR_Pool_MDL
+# use the documented static-pool engine (PYSR_USE_JULIA=0, PYOPERON_NATIVE=0) so 44 concurrent workers
+# never spawn 44 competing Julia runtimes; native Julia PySR & C++ PyOperon run in Step 3 above.
+export PYSR_USE_JULIA=0
+export PYOPERON_NATIVE=0
+
 if [[ "$SUITE" == "all" || "$SUITE" == "fast" || "$SUITE" == "real_only" ]]; then
-  echo "[STEP 4A] Pruning old '$SCOPE' checkpoints for 'real' and launching benchmark..."
-  Rscript scripts/prepare_pure_mpm_checkpoints.R --suite real --scope "$SCOPE"
+  echo "[STEP 4A] Clearing all 2,600 'real' checkpoints (post-split zero-leakage data) and running Experiment 2..."
+  Rscript scripts/prepare_pure_mpm_checkpoints.R --suite real --scope all
   ./scripts/run_remote_server.sh real "$NUM_WORKERS" 1
 fi
 
 if [[ "$SUITE" == "all" || "$SUITE" == "synth_only" ]]; then
-  echo "[STEP 4B] Pruning old '$SCOPE' checkpoints for 'synth' and launching benchmark..."
-  Rscript scripts/prepare_pure_mpm_checkpoints.R --suite synth --scope "$SCOPE"
+  echo "[STEP 4B] Clearing '$SYNTH_SCOPE' checkpoints for 'synth' and running Experiment 1..."
+  Rscript scripts/prepare_pure_mpm_checkpoints.R --suite synth --scope "$SYNTH_SCOPE"
   ./scripts/run_remote_server.sh synth "$NUM_WORKERS" 1
 fi
 
 echo "========================================================================"
-echo "[PURE-MPM SSH] Finished at $(date). Aggregated results in results/aggregated/ and results/ablation_native/."
+echo "[PURE-MPM SSH] ALL REQUESTED SUITES COMPLETE at $(date)."
+echo "  Transfer back: results/aggregated/ results/ablation_native/ results/tables/ results/figures/ config/best_bgnlm_params.yaml"
 echo "========================================================================"
 
 
@@ -8350,7 +8440,8 @@ if [[ ! -f "config/manifest_synth.csv" || ! -f "config/manifest_real.csv" ]]; th
 fi
 
 # Resolve OS timeout command if available (GNU coreutils on Linux)
-TASK_TIMEOUT=${TASK_TIMEOUT:-600}
+# Note: N=2500 5D Lorenz-96 BGNLM/BGLM tasks take up to 620-1800s under 44-worker load
+TASK_TIMEOUT=${TASK_TIMEOUT:-1800}
 OS_TIMEOUT=$((TASK_TIMEOUT + 60))
 TIMEOUT_CMD=""
 if command -v timeout >/dev/null 2>&1; then
@@ -8426,8 +8517,8 @@ if [[ "$SUITE" == "real" || "$SUITE" == "both" ]]; then
 fi
 
 echo "[INFO] Aggregating checkpoints and running mixed-effects evaluation..."
-Rscript scripts/aggregate_results.R
-Rscript scripts/run_mixed_models.R
+Rscript scripts/aggregate_results.R --suite "$SUITE"
+Rscript scripts/run_mixed_models.R || echo "[WARN] Mixed-effects summary deferred or non-fatal warning."
 echo "[INFO] Pipeline complete."
 
 
@@ -9171,7 +9262,8 @@ message("=== ALL REQUESTED ABLATION JOBS COMPLETE ===")
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Targeted server ablation: native PySR/PyOperon + standardized UQ_SINDy + state_noise + authentic 1900-1920 Lynx-Hare
+# Targeted server ablation: Pure-MPM BGNLM + native PySR/PyOperon + standardized Bag_STLSQ
+# + BAS Bayesian SINDy + Galerkin WSINDy + authentic zero-leakage empirical datasets
 # Recommended via nohup:
 #   nohup ./scripts/run_targeted_ablation.sh 6 > run_targeted_ablation.log 2>&1 &
 
@@ -9180,13 +9272,17 @@ cd "$REPO_ROOT"
 
 CORES="${1:-6}"
 
-# Load EasyBuild R module on nam-shub-01 if available
+export PATH="$HOME/.juliaup/bin:$HOME/.local/bin:$PATH"
+
+# Load EasyBuild R (and Julia if available) module on nam-shub-01
 if command -v module >/dev/null 2>&1; then
   module load R/4.5.2-gfbf-2025b 2>/dev/null || true
+  module load Julia 2>/dev/null || true
 elif [ -f /etc/profile.d/modules.sh ]; then
   # shellcheck disable=SC1091
   source /etc/profile.d/modules.sh
   module load R/4.5.2-gfbf-2025b 2>/dev/null || true
+  module load Julia 2>/dev/null || true
 fi
 
 if ! command -v Rscript >/dev/null 2>&1; then
@@ -9200,6 +9296,19 @@ if [ -d "$REPO_ROOT/.r_lib" ]; then
   export R_LIBS="$REPO_ROOT/.r_lib"
 fi
 
+# Ensure BAS (and optional gauseR) exist in R library for Job 2 & Job 4
+Rscript -e '
+  lib_t <- Sys.getenv("R_LIBS_USER")
+  if (!nzchar(lib_t) || !dir.exists(lib_t)) lib_t <- .libPaths()[1]
+  for (pkg in c("BAS", "gauseR")) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      message("[ABLATION SETUP] Installing missing R package: ", pkg)
+      try(install.packages(pkg, lib = lib_t, repos = "https://cloud.r-project.org"), silent = TRUE)
+    }
+  }
+  stopifnot(requireNamespace("BAS", quietly = TRUE))
+'
+
 # Activate project-local Python .venv if present
 if [ -f "$REPO_ROOT/.venv/bin/activate" ]; then
   # shellcheck disable=SC1091
@@ -9208,11 +9317,52 @@ if [ -f "$REPO_ROOT/.venv/bin/activate" ]; then
   export PATH="$REPO_ROOT/.venv/bin:$PATH"
 fi
 
+# Ensure pyoperon and pysr are installed inside .venv
+PY_BIN="${VIRTUAL_ENV:+$VIRTUAL_ENV/bin/python}"
+PY_BIN="${PY_BIN:-python3}"
+if ! "$PY_BIN" -c "import pyoperon.sklearn, pysr" >/dev/null 2>&1; then
+  echo "[ABLATION SETUP] Installing pyoperon & pysr into .venv..."
+  if command -v uv >/dev/null 2>&1 && [ -n "${VIRTUAL_ENV:-}" ]; then
+    uv pip install --python "$PY_BIN" pyoperon pysr || true
+  elif [ -n "${VIRTUAL_ENV:-}" ]; then
+    "$VIRTUAL_ENV/bin/pip" install pyoperon pysr || true
+  fi
+fi
+
+# Ensure Julia is available for native PySR
+if ! command -v julia >/dev/null 2>&1; then
+  echo "[ABLATION SETUP] 'julia' not found on PATH; bootstrapping standalone juliaup in ~/.juliaup..."
+  curl -fsSL https://install.julialang.org | sh -s -- -y --add-to-path=no || true
+  export PATH="$HOME/.juliaup/bin:$PATH"
+fi
+
+if command -v julia >/dev/null 2>&1; then
+  "$PY_BIN" -c "import pysr; pysr.install(quiet=True)" >/dev/null 2>&1 || true
+fi
+
 export PYSR_USE_JULIA=1
 export PYOPERON_NATIVE=1
 export SINDY_LEGACY_UNSTD_THRESH=0
 export USE_AUTHENTIC_EMPIRICAL=1
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export JULIA_NUM_THREADS=1
 export CORES="${CORES}"
+
+echo "[ABLATION PREFLIGHT] Checking native PyOperon and PySR/Julia bridges..."
+"$PY_BIN" -c '
+import shutil
+try:
+    from pyoperon.sklearn import SymbolicRegressor
+    print("  [OK] pyoperon native C++ backend ready.")
+except Exception as e:
+    print(f"  [WARN] pyoperon unavailable: {e}")
+try:
+    import pysr
+    print(f"  [OK] pysr package ready (julia={shutil.which(\"julia\")}).")
+except Exception as e:
+    print(f"  [WARN] pysr unavailable: {e}")
+'
 
 echo "[ABLATION] Starting targeted server ablation with CORES=${CORES}..."
 Rscript scripts/run_targeted_ablation.R
@@ -9351,7 +9501,7 @@ message("[VERIFY] Active .libPaths():\n  - ", paste(.libPaths(), collapse = "\n 
 
 required_r_pkgs <- c(
   "FBMS", "deSolve", "glmnet", "signal", "data.table", "yaml", "jsonlite",
-  "lme4", "lmerTest", "glmmTMB", "emmeans", "broom.mixed",
+  "lme4", "lmerTest", "glmmTMB", "emmeans", "broom.mixed", "BAS",
   "ggplot2", "dplyr", "tidyr", "reticulate", "R.utils", "testthat"
 )
 

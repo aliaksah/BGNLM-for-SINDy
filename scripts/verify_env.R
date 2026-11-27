@@ -11,7 +11,7 @@ message("[VERIFY] Active .libPaths():\n  - ", paste(.libPaths(), collapse = "\n 
 
 required_r_pkgs <- c(
   "FBMS", "deSolve", "glmnet", "signal", "data.table", "yaml", "jsonlite",
-  "lme4", "lmerTest", "glmmTMB", "emmeans", "broom.mixed",
+  "lme4", "lmerTest", "glmmTMB", "emmeans", "broom.mixed", "BAS",
   "ggplot2", "dplyr", "tidyr", "reticulate", "R.utils", "testthat"
 )
 
